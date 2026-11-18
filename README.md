@@ -2,17 +2,17 @@
 
 **Tiếng Việt** · [English](#english)
 
-Stream Deck gọn nhẹ cho Windows, chạy trên bo ESP32 "Cheap Yellow Display" (CYD) giá rẻ:
+Stream Deck gọn nhẹ cho Windows, chạy trên mạch ESP32 "Cheap Yellow Display" (CYD) giá rẻ:
 - 8 phím cảm ứng có ảnh màu;
 - thanh tin hiện bài nhạc đang phát;
 - điều khiển OBS Studio;
 - chạy được plugin Stream Deck của Elgato.
 
-Giao diện có tiếng Việt và tiếng Anh. Cấu hình phím bằng một trang web ngay trên máy, nối với bo chỉ bằng cáp USB.
+Giao diện có tiếng Việt và tiếng Anh. Cấu hình phím bằng một trang web ngay trên máy, nối với mạch chỉ bằng cáp USB.
 
 ![Bảng phím trên màn CYD: trang chính, đang phát nhạc](docs/images/demo-media-vi.png)
 
-*Ảnh chụp trực tiếp từ bộ nhớ màn hình của bo (bộ phím và bài nhạc mẫu), phóng nguyên lần 4 lần.*
+*Ảnh chụp trực tiếp từ bộ nhớ màn hình của mạch (bộ phím và bài nhạc mẫu), phóng nguyên lần 4 lần.*
 
 ## Tiếng Việt
 
@@ -36,10 +36,10 @@ Giao diện có tiếng Việt và tiếng Anh. Cấu hình phím bằng một t
   - trang cài đặt riêng của plugin (Property Inspector) hiện ngay trong trang cài đặt.
 
   Xem [Plugin Stream Deck](#plugin-stream-deck).
-- **Tiếng Anh** cho bo, agent và trang cài đặt. Đổi bằng nút VI/EN; lần đầu theo ngôn ngữ của Windows.
+- **Tiếng Anh** cho mạch, agent và trang cài đặt. Đổi bằng nút VI/EN; lần đầu theo ngôn ngữ của Windows.
 - **Nhanh và nhẹ hơn**:
   - cổng USB chạy 921600 baud thay vì 115200, ảnh phím nén RLE;
-  - lúc đứng yên bo chỉ vẽ lại nhãn giờ và CPU/RAM, không vẽ lại phím;
+  - lúc đứng yên mạch chỉ vẽ lại nhãn giờ và CPU/RAM, không vẽ lại phím;
   - agent dùng ít RAM hơn (65–73 MB thay vì 82 MB) và không còn tạo rồi huỷ handle liên tục.
 
   Số đo ở [Hiệu năng](#hiệu-năng).
@@ -70,15 +70,15 @@ lượng nguồn, thanh tin OBS.*
   - gợn sóng lan từ chỗ ngón tay chạm, phím lún rồi nảy như lò xo;
   - viền trắng chờ PC, xanh khi xong, cam khi lỗi;
   - lật trang trượt bằng cuộn phần cứng của màn ILI9341.
-- **Ảnh và bộ phím lưu trong flash của bo**, rút cáp vẫn còn. PC chỉ gửi những ảnh bo chưa có. Ảnh đổi liên tục của
+- **Ảnh và bộ phím lưu trong flash của mạch**, rút cáp vẫn còn. PC chỉ gửi những ảnh mạch chưa có. Ảnh đổi liên tục của
   plugin (đồng hồ, biểu đồ…) đi vào 8 ô ảnh trong RAM, không ghi flash.
 - **Chỉ cần cáp USB**: không Wi-Fi, không mở cổng tường lửa, không cài thêm runtime. Agent trên PC dịch bằng `csc.exe`
   có sẵn trong Windows.
 
 ![Trang cài đặt phím](docs/images/settings-vi.png)
 
-*Trang cài đặt, mở từ icon ở khay hệ thống. Lưới phím xem trước đúng màu sẽ lên bo; kéo thả để đổi chỗ phím; nút
-VI/EN đổi ngôn ngữ cho cả trang, agent và bo.*
+*Trang cài đặt, mở từ icon ở khay hệ thống. Lưới phím xem trước đúng màu sẽ lên mạch; kéo thả để đổi chỗ phím; nút
+VI/EN đổi ngôn ngữ cho cả trang, agent và mạch.*
 
 ### Cần gì
 
@@ -97,15 +97,15 @@ VI/EN đổi ngôn ngữ cho cả trang, agent và bo.*
    .\cyd.cmd all -NoMonitor
    ```
    Lệnh này build, nạp, rồi đọc mã chip màn để kiểm tra đúng loại. Cũng có thể dùng `pio run -t upload`.
-   Chưa nối máy tính thì bo hiện bộ phím mẫu và báo "Đang chờ máy tính…".
+   Chưa nối máy tính thì mạch hiện bộ phím mẫu và báo "Đang chờ máy tính…".
 2. **Dịch và chạy agent** (thư mục `pc-agent`):
    - nhấp đúp `build.cmd`, ra file `bin\CydAgent.exe`;
    - chạy `bin\CydAgent.exe`: agent không có cửa sổ, chỉ có icon nhỏ ở khay hệ thống;
    - muốn agent tự chạy mỗi lần đăng nhập Windows: chạy `tu-chay.ps1`.
 3. **Cài đặt phím**: nhấp đúp icon agent ở khay, hoặc chuột phải → *Cài đặt Deck…*. Sửa phím, bấm **Lưu và gửi xuống
-   bo**.
+   mạch**.
 
-Agent tự tìm bo theo chip USB-serial (CH340, CP210x, ESP32-S3), mở cổng mà không khởi động lại bo. Dữ liệu nằm trong
+Agent tự tìm mạch theo chip USB-serial (CH340, CP210x, ESP32-S3), mở cổng mà không khởi động lại mạch. Dữ liệu nằm trong
 `%APPDATA%\CydDeck\`:
 - `deck.json`: bộ phím;
 - `images\`: ảnh tải lên;
@@ -133,7 +133,7 @@ OBS khi bộ phím có phím OBS hay trang có thanh tin OBS, và tự nối l�
 
 ### Plugin Stream Deck
 
-Agent đóng vai app Stream Deck của Elgato theo SDK của họ (WebSocket JSON). Plugin thấy bo như một Stream Deck Neo
+Agent đóng vai app Stream Deck của Elgato theo SDK của họ (WebSocket JSON). Plugin thấy mạch như một Stream Deck Neo
 (4×2 phím). Cài plugin:
 1. Tải file `.streamDeckPlugin`, thường ở trang GitHub Releases của plugin.
 2. Trong trang cài đặt, mục **Plugin Stream Deck** ở góc trái dưới, bấm **Cài plugin…** và chọn file. Cũng chọn được
@@ -144,7 +144,7 @@ Agent đóng vai app Stream Deck của Elgato theo SDK của họ (WebSocket JSO
 
 Đã thử với các plugin mã nguồn mở sau (ngày 18/11/2026):
 
-| Plugin | Loại | Kết quả trên bo |
+| Plugin | Loại | Kết quả trên mạch |
 |---|---|---|
 | [CPU](https://github.com/elgatosf/streamdeck-cpu) 1.2 (Elgato) | `.exe` (C++) | Nhãn % CPU đổi mỗi giây |
 | [Counter](https://github.com/elgatosf/streamdeck-counter) 1.4 (Elgato) | HTML/JS | Chạm là tăng số, số đếm được lưu |
@@ -186,7 +186,7 @@ không kèm plugin nào; ảnh của plugin trong ảnh chụp là của tác gi
 
 ### Hiệu năng
 
-Đo ngày 18/11/2026 trên bo thật và một PC Windows 11 (16 luồng).
+Đo ngày 18/11/2026 trên mạch thật và một PC Windows 11 (16 luồng).
 
 **Bo** (bản đo `-DCYD_PERF=1 -DCYD_PERF_DEMO=4`, `perf.cpp`):
 
@@ -197,9 +197,9 @@ không kèm plugin nào; ảnh của plugin trong ảnh chụp là của tác gi
 | Viền chờ PC, viền kết quả | 60–61 |
 | Lật trang | 59–62 |
 
-- Đứng yên, thanh tin nhận gói mới mỗi giây: bo vẽ 1 khung mỗi giây, khoảng 3.500 điểm ảnh (nhãn giờ, CPU, RAM).
+- Đứng yên, thanh tin nhận gói mới mỗi giây: mạch vẽ 1 khung mỗi giây, khoảng 3.500 điểm ảnh (nhãn giờ, CPU, RAM).
   Bản 1 vẽ lại cả 8 phím mỗi giây.
-- USB 921600 baud: bo nối và nhận bộ phím trong khoảng 1 giây.
+- USB 921600 baud: mạch nối và nhận bộ phím trong khoảng 1 giây.
 
 **Agent** (CydAgent, lấy mẫu mỗi 30 giây):
 
@@ -215,7 +215,7 @@ khoảng 200 MB RAM, CPU gần 0 khi đứng yên.
 ### Cấu trúc
 
 ```
-firmware/    C++ / LVGL 9.5 / PlatformIO cho bo CYD
+firmware/    C++ / LVGL 9.5 / PlatformIO cho mạch CYD
   src/cyd/     màn hình, cảm ứng, cuộn phần cứng
   src/app/     hiệu ứng (motion), bảng màu, icon
   src/deck/    giao diện bộ phím, giao thức USB (link), kho ảnh trong flash (store), ô ảnh RAM (ramimg),
@@ -228,13 +228,13 @@ pc-agent/    CydAgent: chương trình ở khay hệ thống, C# 5 / .NET Framew
 docs/images/ ảnh trong README
 ```
 
-Giao thức giữa PC và bo ghi ở đầu `firmware/src/deck/link.h`.
-- PC → bo: gói nhị phân có CRC, 921600 baud.
+Giao thức giữa PC và mạch ghi ở đầu `firmware/src/deck/link.h`.
+- PC → mạch: gói nhị phân có CRC, 921600 baud.
 - Bo → PC: dòng chữ `[DECK] ...`.
 
 Ảnh phím là RGB565 72×72, mã ảnh là CRC-32 của điểm ảnh.
 
-`.\cyd.cmd shot` chụp lại màn hình bo qua cổng Serial (các ảnh bo trong README được chụp như vậy).
+`.\cyd.cmd shot` chụp lại màn hình mạch qua cổng Serial (các ảnh mạch trong README được chụp như vậy).
 
 ### Chưa có
 
