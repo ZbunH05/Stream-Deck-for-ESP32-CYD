@@ -50,6 +50,7 @@ static class I18n {
     {"plugin.installed", new[] {"Đã cài plugin {0}", "Installed plugin {0}"}},
     {"plugin.removed", new[] {"Đã gỡ plugin {0}", "Removed plugin {0}"}},
     {"plugin.bad_file", new[] {"Không phải plugin Stream Deck (thiếu manifest.json)", "Not a Stream Deck plugin (manifest.json missing)"}},
+    {"plugin.protected", new[] {"Plugin này được Elgato Marketplace mã hoá: chỉ chạy trong phần mềm Stream Deck của Elgato", "This plugin is encrypted by the Elgato Marketplace: it only runs in Elgato's Stream Deck app"}},
     {"plugin.no_node", new[] {"Plugin cần Node.js: cài Node.js rồi khởi động lại agent", "This plugin needs Node.js: install Node.js and restart the agent"}},
     {"plugin.unsupported_os", new[] {"Plugin không chạy trên Windows", "This plugin does not support Windows"}},
     {"menu.settings", new[] {"Cài đặt Deck…", "Deck settings…"}},

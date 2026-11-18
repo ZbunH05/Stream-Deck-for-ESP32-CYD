@@ -70,7 +70,12 @@ static class ElgatoPlugins {
 
   // Đọc một thư mục .sdPlugin
   public static PluginInfo Read(string folder) {
-    var m = DeckConfig.Json().Deserialize<Dictionary<string, object>>(File.ReadAllText(Path.Combine(folder, "manifest.json"), Encoding.UTF8));
+    byte[] raw = File.ReadAllBytes(Path.Combine(folder, "manifest.json"));
+    // Plugin tải từ Elgato Marketplace có manifest mã hoá, mở đầu bằng "ELGATO" thay vì JSON
+    if (raw.Length >= 6 && Encoding.ASCII.GetString(raw, 0, 6) == "ELGATO") {
+      throw new InvalidOperationException(I18n.T("plugin.protected"));
+    }
+    var m = DeckConfig.Json().Deserialize<Dictionary<string, object>>(new UTF8Encoding(false).GetString(raw).TrimStart('﻿'));
     var info = new PluginInfo {
       Folder = folder, Name = S(m, "Name"), Author = S(m, "Author"), Version = S(m, "Version"), Icon = S(m, "Icon"),
       Category = S(m, "Category"), PropertyInspector = S(m, "PropertyInspectorPath"), Actions = new List<PluginAction>(),
