@@ -1,0 +1,8 @@
+# Build
+firmware/.pio/
+firmware/tools/bin/
+firmware/tools/board-env.txt
+firmware/shots/
+compile_commands.json
+pc-agent/bin/
+pc-agent/logs/
