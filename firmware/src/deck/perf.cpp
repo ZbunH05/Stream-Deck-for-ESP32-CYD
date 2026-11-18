@@ -78,7 +78,7 @@ void end() {
 }
 
 // Kịch bản: mỗi bước {lúc bắt đầu tính từ đầu lượt (ms), việc}
-enum class Op : uint8_t { Begin, End, Press, Release, RingWait, RingOk, PageNext, PageBack };
+enum class Op : uint8_t { Begin, End, Press, Release, RingWait, RingOk, PageNext, PageBack, Info };
 struct Step {
   uint32_t at;
   Op op;
@@ -103,8 +103,17 @@ const Step STEPS[] = {
     {6100, Op::PageNext, nullptr},
     {6800, Op::End, nullptr},
     {7000, Op::PageBack, nullptr},
+    // Đứng yên, PC gửi thanh tin mỗi giây (giờ, CPU, RAM, tiến độ bài hát đổi): chỉ nhãn số và vạch tiến độ được vẽ
+    // lại, không phải 8 phím (trước 19/11/2026 mỗi gói thanh tin làm bo vẽ lại cả lưới phím)
+    {7600, Op::Begin, "dung yen, thanh tin moi giay (5 goi)"},
+    {7600, Op::Info, nullptr},
+    {8600, Op::Info, nullptr},
+    {9600, Op::Info, nullptr},
+    {10600, Op::Info, nullptr},
+    {11600, Op::Info, nullptr},
+    {12500, Op::End, nullptr},
 };
-constexpr uint32_t ROUND_MS = 8000, START_MS = 5000;
+constexpr uint32_t ROUND_MS = 13000, START_MS = 5000;
 constexpr int ROUNDS = 3;
 
 size_t step = 0;
@@ -125,6 +134,7 @@ void perf_loop() {
   if (round_no >= ROUNDS || now < START_MS) return;
   if (!round_t0) {
     round_t0 = now;
+    deck_info().online = true;
     deck_go(0, false);
   }
   lv_display_trigger_activity(nullptr);
@@ -143,6 +153,18 @@ void perf_loop() {
       case Op::RingOk: deck_demo_ring(SLOT, 1); break;
       case Op::PageNext: deck_go(1, true); break;
       case Op::PageBack: deck_go(0, true); break;
+      case Op::Info: {
+        DeckInfo &info = deck_info();
+        info.online = true;
+        info.cpu = (uint8_t)((info.cpu + 7) % 100);
+        info.ram = (uint8_t)(40 + info.cpu % 5);
+        info.progress = (uint16_t)((info.progress > 1000 ? 0 : info.progress) + 12);
+        strlcpy(info.media_title, "Lofi chill mix", sizeof info.media_title);
+        strlcpy(info.media_sub, "Lofi Girl · YouTube", sizeof info.media_sub);
+        info.playing = true;
+        deck_refresh_info();
+        break;
+      }
     }
   }
   if (now - round_t0 >= ROUND_MS) {

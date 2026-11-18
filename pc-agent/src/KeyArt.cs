@@ -183,17 +183,32 @@ public static class KeyArt {
     }
 
     // Font icon có ký tự này không (Segoe Fluent Icons có trên Windows 11, Segoe MDL2 Assets trên Windows 10)
+    // Hỏi GDI (GetGlyphIndicesW): trước 19/11/2026 dùng GlyphTypeface của WPF, nạp cả PresentationCore (~30 MB RAM) chỉ
+    // để kiểm tra vài chục ký tự
+    [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
+    static extern uint GetGlyphIndicesW(IntPtr hdc, string text, int count, [Out] ushort[] indices, uint flags);
+    [DllImport("gdi32.dll")]
+    static extern IntPtr SelectObject(IntPtr hdc, IntPtr obj);
+    const uint GGI_MARK_NONEXISTING_GLYPHS = 1;
+
     public static bool HasGlyph(string fontName, char code) {
         using (var font = new Font(fontName, 32, GraphicsUnit.Pixel)) {
             if (font.Name != fontName) return false;
+            using (var bmp = new Bitmap(1, 1))
+            using (var g = Graphics.FromImage(bmp)) {
+                IntPtr hdc = g.GetHdc();
+                IntPtr hfont = font.ToHfont();
+                try {
+                    IntPtr old = SelectObject(hdc, hfont);
+                    var index = new ushort[1];
+                    uint n = GetGlyphIndicesW(hdc, code.ToString(), 1, index, GGI_MARK_NONEXISTING_GLYPHS);
+                    SelectObject(hdc, old);
+                    return n == 1 && index[0] != 0xFFFF;
+                } finally {
+                    DeleteObject(hfont);
+                    g.ReleaseHdc(hdc);
+                }
+            }
         }
-        var face = new System.Windows.Media.GlyphTypeface(new Uri(FontFile(fontName)));
-        ushort glyph;
-        return face.CharacterToGlyphMap.TryGetValue(code, out glyph);
-    }
-
-    static string FontFile(string fontName) {
-        string dir = Environment.GetFolderPath(Environment.SpecialFolder.Fonts);
-        return System.IO.Path.Combine(dir, fontName == "Segoe Fluent Icons" ? "SegoeIcons.ttf" : "segmdl2.ttf");
     }
 }

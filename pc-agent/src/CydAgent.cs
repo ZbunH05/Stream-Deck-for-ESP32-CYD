@@ -481,7 +481,8 @@ sealed class Sampler {
     return Math.Min(100, engines.Values.Max());
   }
 
-  public Stats Sample() {
+  // light: chỉ CPU và RAM (bo Deck không hiện GPU, mạng, tốc độ CPU), đỡ gọi NVML/PDH GPU mỗi giây
+  public Stats Sample(bool light = false) {
     pdh.Collect();
     var s = new Stats();
     double? byTime = SystemTimes();
@@ -497,6 +498,7 @@ sealed class Sampler {
       s.RamTotalMb = mem.ullTotalPhys >> 20;
       s.RamUsedMb = (mem.ullTotalPhys - mem.ullAvailPhys) >> 20;
     }
+    if (light) return s;
 
     uint util, temp;
     ulong used, total;
@@ -671,7 +673,7 @@ sealed class Link {
   public Action<string> DeckLine;  // mỗi dòng "[DECK] ..." của bo (luồng đọc cổng COM)
   public Action Disconnected;
   public string PortName = "";
-  public string Status = "Đang tìm bo CYD…";
+  public string Status = I18n.T("link.searching");
 
   public Link(string fixedPort) { this.fixedPort = fixedPort; }
 
@@ -681,7 +683,7 @@ sealed class Link {
     lock (gate) {
       pausedUntil = DateTime.UtcNow.AddSeconds(Math.Max(1, seconds));
       Close("tạm nhả cổng " + seconds + " giây");
-      Status = "Đã nhả cổng COM (đang nạp hay đọc log)";
+      Status = I18n.T("link.released");
     }
   }
 
@@ -716,6 +718,7 @@ sealed class Link {
     port = null;
     Confirmed = false;
     Viewing = false;
+    baudIndex = 0;  // lần mở sau dò lại từ 921600 (đường đổi tốc độ trong Tick tăng lại sau khi đóng)
     bool wasDeck = IsDeck;
     IsDeck = false;
     if (wasDeck && Disconnected != null) Disconnected();
@@ -726,8 +729,13 @@ sealed class Link {
     }
   }
 
+  // Deck nói ở 921600 baud, CYD-EEZ ở 115200: mở cổng ở tốc độ đầu, không ai trả lời sau vài giây thì thử tốc độ sau
+  static readonly int[] BAUDS = { 921600, 115200 };
+  int baudIndex = 0;
+  public int Baud { get { return BAUDS[baudIndex]; } }
+
   void Open(string name) {
-    var sp = new SerialPort(name, 115200, Parity.None, 8, StopBits.One);
+    var sp = new SerialPort(name, BAUDS[baudIndex], Parity.None, 8, StopBits.One);
     sp.DtrEnable = false;  // DTR/RTS nối vào chân EN/IO0 của ESP32: bật lên là bo khởi động lại
     sp.RtsEnable = false;
     sp.Handshake = Handshake.None;
@@ -739,7 +747,7 @@ sealed class Link {
     openedAt = DateTime.UtcNow;
     helloAt = DateTime.MinValue;
     Confirmed = false;
-    Status = "Đang chào bo ở " + name + "…";
+    Status = string.Format(I18n.T("link.hello"), name, BAUDS[baudIndex]);
     Log.Agent("Mở " + name);
     reader = new Thread(() => ReadLoop(sp)) { IsBackground = true, Name = "board-log" };
     reader.Start();
@@ -813,20 +821,30 @@ sealed class Link {
             Open(name);
             break;
           } catch (Exception ex) {
-            Status = name + " đang bận (" + ex.GetType().Name + ")";
+            Status = string.Format(I18n.T("link.busy"), name, ex.GetType().Name);
           }
         }
         if (port == null) {
-          if (ports.Count == 0) Status = "Không thấy bo CYD (cắm cáp USB)";
+          if (ports.Count == 0) Status = I18n.T("link.none");
           return;
         }
       }
       if (!Confirmed) {
-        if ((DateTime.UtcNow - openedAt).TotalSeconds > 20) {
+        double waited = (DateTime.UtcNow - openedAt).TotalSeconds;
+        if (baudIndex + 1 < BAUDS.Length && waited > 4) {
+          // không phải bo Deck ở 921600: mở lại ở tốc độ sau (CYD-EEZ) ngay, không phạt 1 phút
+          string name = PortName;
+          Close("không trả lời ở " + BAUDS[baudIndex] + " baud, thử " + BAUDS[baudIndex + 1]);
+          baudIndex++;
+          try { Open(name); } catch (Exception) { baudIndex = 0; }
+          return;
+        }
+        if (waited > 20) {
           // Cổng không trả lời: thiết bị khác, hoặc firmware cũ chưa có trang Máy tính. Thử lại sau 1 phút.
           notCyd[PortName] = DateTime.UtcNow.AddSeconds(60);
           Close("không có trả lời, có thể là firmware chưa có trang Máy tính");
-          Status = PortName + " không trả lời (firmware cũ?)";
+          baudIndex = 0;
+          Status = string.Format(I18n.T("link.silent"), PortName);
           return;
         }
         if ((DateTime.UtcNow - helloAt).TotalSeconds >= 2) {
@@ -834,7 +852,7 @@ sealed class Link {
           Send(Frames.Hello());
         }
       } else {
-        Status = (IsDeck ? "Đã nối bo CYD Deck qua " : "Đã nối bo CYD qua ") + PortName;
+        Status = string.Format(I18n.T(IsDeck ? "link.deck" : "link.board"), PortName);
         if ((DateTime.UtcNow - helloAt).TotalSeconds >= 10) {  // để bo vừa khởi động lại biết tên máy
           helloAt = DateTime.UtcNow;
           Send(Frames.Hello());
@@ -850,7 +868,7 @@ sealed class Link {
         port.Write(frame, 0, frame.Length);
       } catch (Exception ex) {
         Close("ghi lỗi (" + ex.GetType().Name + "), có thể đã rút cáp");
-        Status = "Mất kết nối, đang tìm lại…";
+        Status = I18n.T("link.lost");
         searchAt = DateTime.UtcNow.AddSeconds(2);
       }
     }
@@ -863,19 +881,22 @@ sealed class Link {
 
 // ---------------------------------------------------------------------------------------------------------------
 // Điều khiển cục bộ (chỉ 127.0.0.1): "pause <giây>", "resume", "status", "quit", "ui" (mở trang cài đặt Deck),
-// "url" (địa chỉ trang cài đặt kèm mã). tools/cyd.ps1 dùng để nhả cổng COM.
+// "url" (địa chỉ trang cài đặt kèm mã), "plugin <file>" (cài plugin Stream Deck từ file .streamDeckPlugin hay
+// manifest.json, như nút Cài plugin của trang cài đặt). tools/cyd.ps1 dùng để nhả cổng COM.
 // ---------------------------------------------------------------------------------------------------------------
 sealed class Control {
   public const int PORT = 47830;
   readonly Link link;
   readonly Action quit, openUi;
   readonly Func<string> uiUrl;
+  readonly Func<string, string> installPlugin;
 
-  public Control(Link link, Action quit, Action openUi, Func<string> uiUrl) {
+  public Control(Link link, Action quit, Action openUi, Func<string> uiUrl, Func<string, string> installPlugin) {
     this.link = link;
     this.quit = quit;
     this.openUi = openUi;
     this.uiUrl = uiUrl;
+    this.installPlugin = installPlugin;
     var thread = new Thread(Run) { IsBackground = true, Name = "control" };
     thread.Start();
   }
@@ -896,7 +917,8 @@ sealed class Control {
           var stream = client.GetStream();
           var reader = new StreamReader(stream, Encoding.UTF8);
           var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
-          string command = (reader.ReadLine() ?? "").Trim().ToLowerInvariant();
+          string line = (reader.ReadLine() ?? "").Trim();
+          string command = line.ToLowerInvariant();
           string[] parts = command.Split(' ');
           if (parts[0] == "pause") {
             int seconds = 600;
@@ -911,6 +933,12 @@ sealed class Control {
             writer.WriteLine("ok");
           } else if (parts[0] == "url" && uiUrl != null) {  // địa chỉ trang cài đặt (có mã), để thử từ máy này
             writer.WriteLine(uiUrl());
+          } else if (parts[0] == "plugin" && line.Length > 7) {
+            try {
+              writer.WriteLine("ok " + installPlugin(line.Substring(7).Trim().Trim('"')));
+            } catch (Exception ex) {
+              writer.WriteLine("loi " + ex.Message);
+            }
           } else if (parts[0] == "quit") {
             writer.WriteLine("ok");
             quit();
@@ -931,6 +959,7 @@ sealed class AgentApp : ApplicationContext {
   readonly Link link;
   readonly DeckSync deck;
   readonly DeckWeb web;
+  readonly ElgatoHost plugins;
   readonly Sampler sampler = new Sampler();
   readonly NotifyIcon tray;
   readonly Icon iconOnline, iconOffline;
@@ -961,24 +990,23 @@ sealed class AgentApp : ApplicationContext {
     ui = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
     link = new Link(fixedPort);
     deck = new DeckSync(link);
+    deck.Obs = new DeckObs();
+    deck.Obs.Needed = () => DeckConfig.UsesObs(deck.Layout.Config);
+    plugins = new ElgatoHost(deck);
+    deck.Plugins = plugins;
     link.DeckLine = deck.OnLine;
     link.Disconnected = deck.OnDisconnected;
-    web = new DeckWeb(deck, link, Pick);
+    web = new DeckWeb(deck, link, plugins, Pick, () => ui.Post(_ => BuildMenu(), null));
     iconOnline = MakeIcon(Color.FromArgb(46, 204, 113));
     iconOffline = MakeIcon(Color.FromArgb(160, 160, 160));
     statusItem = new ToolStripMenuItem(link.Status) { Enabled = false };
-    var menu = new ContextMenuStrip();
-    menu.Items.Add(statusItem);
-    menu.Items.Add(new ToolStripSeparator());
-    menu.Items.Add("Cài đặt Deck…", null, (s, e) => web.Open());
-    menu.Items.Add(new ToolStripSeparator());
-    menu.Items.Add("Tạm nhả cổng COM 10 phút (để nạp firmware)", null, (s, e) => link.Pause(600));
-    menu.Items.Add("Nối lại ngay", null, (s, e) => link.Resume());
-    menu.Items.Add("Mở thư mục log", null, (s, e) => Process.Start("explorer.exe", "\"" + Log.Dir + "\""));
-    menu.Items.Add(new ToolStripSeparator());
-    menu.Items.Add("Thoát", null, (s, e) => Quit());
-    tray = new NotifyIcon { Icon = iconOffline, Text = "CYD PC Agent", ContextMenuStrip = menu, Visible = true };
-    new Control(link, () => ui.Post(_ => Quit(), null), () => web.Open(), () => web.Url);
+    tray = new NotifyIcon { Icon = iconOffline, Text = "CYD PC Agent", Visible = true };
+    BuildMenu();
+    new Control(link, () => ui.Post(_ => Quit(), null), () => web.Open(), () => web.Url, file => {
+      string uuid = ElgatoPlugins.Install(file);
+      plugins.Restart(uuid);
+      return uuid;
+    });
     tray.DoubleClick += (s, e) => web.Open();
     var thread = new Thread(Loop) { IsBackground = true, Name = "sampler" };
     thread.Start();
@@ -989,11 +1017,13 @@ sealed class AgentApp : ApplicationContext {
     long next = Stopwatch.GetTimestamp();
     while (running) {
       try {
-        Stats stats = sampler.Sample();
+        bool deckMode = link.Confirmed && link.IsDeck;
+        Stats stats = sampler.Sample(deckMode);
         link.Tick();
-        // Danh sách tiến trình: mỗi giây khi trang Máy tính đang mở, 5 giây một lần khi không (chỉ để đếm số tiến trình)
-        bool want = link.Confirmed && (link.Viewing || link.WantProcs);
-        if (want || ++procsAge >= 5) {
+        // Danh sách tiến trình: mỗi giây khi trang Máy tính đang mở, 5 giây một lần khi không (chỉ để đếm số tiến
+        // trình). Bo Deck không dùng: không đo (NtQuerySystemInformation cả nghìn tiến trình mỗi lần).
+        bool want = link.Confirmed && !link.IsDeck && (link.Viewing || link.WantProcs);
+        if (!deckMode && (want || ++procsAge >= 5)) {
           lastProcs = sampler.Procs.Sample(sampler.ProcScale(stats));
           procsAge = 0;
           stats.Procs = sampler.Procs.Count;
@@ -1023,6 +1053,26 @@ sealed class AgentApp : ApplicationContext {
     }
   }
 
+  // Menu khay theo ngôn ngữ đang chọn (dựng lại khi đổi ngôn ngữ trong trang cài đặt)
+  void BuildMenu() {
+    var menu = new ContextMenuStrip();
+    menu.Items.Add(statusItem);
+    menu.Items.Add(new ToolStripSeparator());
+    menu.Items.Add(I18n.T("menu.settings"), null, (s, e) => web.Open());
+    menu.Items.Add(new ToolStripSeparator());
+    menu.Items.Add(I18n.T("menu.pause"), null, (s, e) => link.Pause(600));
+    menu.Items.Add(I18n.T("menu.resume"), null, (s, e) => link.Resume());
+    menu.Items.Add(I18n.T("menu.logs"), null, (s, e) => Process.Start("explorer.exe", "\"" + Log.Dir + "\""));
+    menu.Items.Add(new ToolStripSeparator());
+    menu.Items.Add(I18n.T("menu.quit"), null, (s, e) => Quit());
+    var old = tray.ContextMenuStrip;
+    tray.ContextMenuStrip = menu;
+    if (old != null) {
+      old.Items.Remove(statusItem);
+      old.Dispose();
+    }
+  }
+
   // Hộp chọn file cho trang cài đặt (luồng giao diện, STA). kind: "exe", "image", "any"
   string Pick(string kind) {
     string result = null;
@@ -1030,10 +1080,12 @@ sealed class AgentApp : ApplicationContext {
       using (var owner = new Form { TopMost = true, ShowInTaskbar = false, StartPosition = FormStartPosition.CenterScreen,
                                     Size = new Size(1, 1), Opacity = 0 })
       using (var dialog = new OpenFileDialog()) {
-        dialog.Title = "Chọn file cho phím CYD Deck";
-        dialog.Filter = kind == "exe" ? "Chương trình (*.exe;*.cmd;*.bat;*.ps1;*.lnk;*.msc)|*.exe;*.cmd;*.bat;*.ps1;*.lnk;*.msc|Mọi file|*.*"
-                      : kind == "image" ? "Ảnh (*.png;*.jpg;*.ico;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.ico;*.gif;*.bmp"
-                      : "Mọi file|*.*";
+        dialog.Title = I18n.T("pick.title");
+        string all = I18n.T("pick.all") + "|*.*";
+        dialog.Filter = kind == "exe" ? I18n.T("pick.programs") + " (*.exe;*.cmd;*.bat;*.ps1;*.lnk;*.msc)|*.exe;*.cmd;*.bat;*.ps1;*.lnk;*.msc|" + all
+                      : kind == "image" ? I18n.T("pick.images") + " (*.png;*.jpg;*.ico;*.gif;*.bmp)|*.png;*.jpg;*.jpeg;*.ico;*.gif;*.bmp"
+                      : kind == "plugin" ? I18n.T("pick.plugins") + " (*.streamDeckPlugin;*.zip;manifest.json)|*.streamDeckPlugin;*.zip;manifest.json|" + all
+                      : all;
         dialog.DereferenceLinks = false;
         owner.Show();
         owner.Activate();
@@ -1043,7 +1095,13 @@ sealed class AgentApp : ApplicationContext {
     return result;
   }
 
+  string shownStatus;
+  bool? shownOnline;
+
   void ShowStatus(string status, bool online) {
+    if (status == shownStatus && online == shownOnline) return;  // đặt lại mỗi giây làm khay vẽ lại, tốn handle GDI
+    shownStatus = status;
+    shownOnline = online;
     statusItem.Text = status;
     string tip = "CYD PC Agent: " + status;
     tray.Text = tip.Length > 63 ? tip.Substring(0, 63) : tip;
@@ -1054,6 +1112,7 @@ sealed class AgentApp : ApplicationContext {
 
   void Quit() {
     running = false;
+    plugins.Shutdown();  // tắt tiến trình của các plugin
     link.Shutdown();
     tray.Visible = false;
     Log.Agent("Thoát");

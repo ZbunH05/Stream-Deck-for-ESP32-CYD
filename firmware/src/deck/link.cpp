@@ -6,6 +6,8 @@
 #include <string.h>
 
 #include "deck.h"
+#include "lang.h"
+#include "ramimg.h"
 #include "sample.h"
 #include "store.h"
 
@@ -22,17 +24,21 @@ enum : uint8_t {
   STATE = 0x17,
   INFO = 0x18,
   ACK = 0x19,
+  OBS = 0x1A,
+  KEY_IMAGE = 0x1B,
 };
 
-constexpr uint16_t MAX_PAYLOAD = 600;
+constexpr uint16_t MAX_PAYLOAD = 640;
 constexpr uint32_t ONLINE_MS = 4000;
 constexpr size_t LAYOUT_MAX = 16384 - 16;
+constexpr size_t CHUNK_MAX = 2048;  // một gói ảnh giải nén ra tối đa chừng này byte (agent chia gói theo đó)
 
 enum class Rx : uint8_t { Magic1, Magic2, Type, Length1, Length2, Payload, Crc };
 Rx rx = Rx::Magic1;
 uint8_t frame_type = 0, crc = 0;
 uint16_t frame_length = 0, received = 0;
 uint8_t payload[MAX_PAYLOAD];
+uint8_t chunk[CHUNK_MAX];
 uint32_t bad_frames = 0;
 uint32_t last_info_ms = 0;
 
@@ -75,7 +81,21 @@ struct Reader {
     }
     out[at] = '\0';
   }
+  bool more() const { return p < end; }
 };
+
+// Phần dữ liệu ảnh của gói (sau phần đầu đã đọc): giải nén vào `chunk`. Trả số byte, -1 nếu hỏng.
+int decode_chunk(Reader &r) {
+  const uint8_t encoding = r.u8();
+  if (!r.ok) return -1;
+  const size_t length = (size_t)(r.end - r.p);
+  if (encoding == 0) {
+    if (length > CHUNK_MAX) return -1;
+    memcpy(chunk, r.p, length);
+    return (int)length;
+  }
+  return encoding == 1 ? rle_decode(r.p, length, chunk, CHUNK_MAX) : -1;
+}
 
 // ---------- bộ phím ----------
 
@@ -85,6 +105,7 @@ bool apply_layout(const uint8_t *blob, size_t length) {
   static DeckProfile fresh;  // ~10 KB: không đặt trên stack của loop()
   fresh = DeckProfile{};
   bool begun = false;
+  Lang language = lang();
   size_t at = 0;
   while (at + 3 <= length) {
     const uint8_t type = blob[at];
@@ -95,6 +116,7 @@ bool apply_layout(const uint8_t *blob, size_t length) {
       fresh.page_count = r.u8();
       fresh.top_pages = r.u8();
       r.text(fresh.name, sizeof fresh.name);
+      if (r.more()) language = r.u8() == 0 ? Lang::Vi : Lang::En;
       if (fresh.page_count > DECK_MAX_PAGES) fresh.page_count = DECK_MAX_PAGES;
       if (fresh.top_pages > fresh.page_count) fresh.top_pages = fresh.page_count;
       begun = r.ok;
@@ -107,7 +129,7 @@ bool apply_layout(const uint8_t *blob, size_t length) {
       r.text(page.name, sizeof page.name);
       for (DeckKey &key : page.keys) {
         const uint8_t kind = r.u8();
-        key.kind = kind <= (uint8_t)KeyKind::Back ? (KeyKind)kind : KeyKind::Empty;
+        key.kind = kind <= (uint8_t)KeyKind::Plugin ? (KeyKind)kind : KeyKind::Empty;
         key.target = r.u8();
         key.image_hash = r.u32();
         key.image_on_hash = r.u32();
@@ -119,34 +141,10 @@ bool apply_layout(const uint8_t *blob, size_t length) {
     at += 3 + size;
   }
   if (!begun || fresh.page_count == 0) return false;
-  deck_profile() = fresh;  // trạng thái bật/tắt và chữ sống PC gửi lại trong vòng một giây
+  lang_set(language);
+  ramimg_clear_all();
+  deck_profile() = fresh;  // trạng thái bật/tắt, nhãn lúc chạy và ảnh RAM PC gửi lại ngay sau đó
   return true;
-}
-
-// Dòng "[DECK] can <mã> <mã>..." các ảnh bộ phím cần mà kho chưa có, rồi "[DECK] can xong <số ảnh>"
-void report_missing() {
-  const DeckProfile &p = deck_profile();
-  char line[200];
-  int len = snprintf(line, sizeof line, "[DECK] can");
-  int count = 0;
-  for (int i = 0; i < p.page_count; i++) {
-    for (const DeckKey &key : p.pages[i].keys) {
-      for (uint32_t hash : {key.image_hash, key.image_on_hash}) {
-        if (!hash || store_find(hash)) continue;
-        char item[12];
-        snprintf(item, sizeof item, " %08lx", (unsigned long)hash);
-        if (strstr(line, item)) continue;  // cùng ảnh ở nhiều phím (chỉ dò trong dòng đang gom)
-        if (len + 10 >= (int)sizeof line) {
-          Serial.println(line);
-          len = snprintf(line, sizeof line, "[DECK] can");
-        }
-        len += snprintf(line + len, sizeof line - len, "%s", item);
-        count++;
-      }
-    }
-  }
-  if (len > 10) Serial.println(line);
-  Serial.printf("[DECK] can xong %d\n", count);
 }
 
 // Mọi mã ảnh bộ phím đang dùng: khi kho đầy chỉ ghi đè ảnh không còn dùng
@@ -168,7 +166,9 @@ void on_hello(Reader &r) {
   r.u8();
   char host[32];
   r.text(host, sizeof host);
-  Serial.printf("[DECK] chao 1 %d/%d %08lx %s\n", store_used(), store_slots(), (unsigned long)layout_crc, host);
+  Serial.printf("[DECK] chao 2 %d/%d %08lx %s\n", store_used(), store_slots(), (unsigned long)layout_crc, host);
+  // PC vừa (nối) lại: báo trang đang hiện để nó gửi ảnh RAM và trạng thái của trang này
+  if (deck_page() >= 0) link_page(deck_page());
 }
 
 void keep_frame() {
@@ -194,7 +194,7 @@ void on_layout_end(Reader &r) {
     if (!store_save_layout(incoming, incoming_length)) Serial.println("[KHO] LOI: khong luu duoc bo phim");
     deck_refresh();
     Serial.printf("[DECK] bo %08lx ok\n", (unsigned long)got);
-    report_missing();
+    link_page(deck_page());
   } else {
     Serial.printf("[DECK] bo %08lx loi\n", (unsigned long)got);
   }
@@ -214,9 +214,8 @@ void on_img_begin(Reader &r) {
 void on_img_data(Reader &r) {
   const uint32_t hash = r.u32();
   const uint16_t offset = r.u16();
-  if (!r.ok) return;
-  const size_t length = (size_t)(r.end - r.p);
-  if (store_write(hash, offset, r.p, length)) {
+  const int length = decode_chunk(r);
+  if (length >= 0 && store_write(hash, offset, chunk, (size_t)length)) {
     Serial.printf("[DECK] anh %08lx ok %u\n", (unsigned long)hash, (unsigned)(offset + length));
   } else {
     Serial.printf("[DECK] anh %08lx loi\n", (unsigned long)hash);
@@ -229,6 +228,28 @@ void on_img_end(Reader &r) {
   const bool ok = store_finish(hash);
   Serial.printf("[DECK] anh %08lx %s\n", (unsigned long)hash, ok ? "xong" : "loi");
   if (ok) deck_refresh();
+}
+
+void on_key_image(Reader &r) {
+  const uint8_t page = r.u8(), key = r.u8();
+  const uint16_t offset = r.u16();
+  if (!r.ok || key >= DECK_KEYS) return;
+  if (offset == 0xFFFF) {  // về ảnh của bộ phím
+    ramimg_clear(page, key);
+    if (deck_page() == page) deck_refresh_key(key);
+    return;
+  }
+  const int length = decode_chunk(r);
+  bool complete = false;
+  if (length < 0 || !ramimg_write(page, key, offset, chunk, (size_t)length, &complete)) {
+    Serial.printf("[DECK] ram %u %u loi\n", page, key);
+    return;
+  }
+  if (!complete) return;
+  Serial.printf("[DECK] ram %u %u ok\n", page, key);
+  uint8_t lost_page, lost_key;
+  if (ramimg_take_evicted(&lost_page, &lost_key) && deck_page() == lost_page) deck_refresh_key(lost_key);
+  if (deck_page() == page) deck_refresh_key(key);
 }
 
 void on_state(Reader &r) {
@@ -247,17 +268,42 @@ void on_state(Reader &r) {
 
 void on_info(Reader &r) {
   DeckInfo next = deck_info();
-  r.u8();  // cờ, để dành
+  const uint8_t flags = r.u8();
   r.text(next.clock, sizeof next.clock);
   next.cpu = r.u8();
   next.ram = r.u8();
   r.text(next.media_title, sizeof next.media_title);
-  r.text(next.media_source, sizeof next.media_source);
+  r.text(next.media_sub, sizeof next.media_sub);
+  next.progress = r.u16();
   if (!r.ok) return;
+  next.playing = (flags & 1) != 0;
   next.online = true;
   last_info_ms = millis();
   DeckInfo &info = deck_info();
-  const bool changed = memcmp(&info, &next, sizeof next) != 0;
+  const bool changed = info.online != next.online || info.playing != next.playing || info.cpu != next.cpu ||
+                       info.ram != next.ram || info.progress != next.progress || strcmp(info.clock, next.clock) ||
+                       strcmp(info.media_title, next.media_title) || strcmp(info.media_sub, next.media_sub);
+  info = next;
+  if (changed) deck_refresh_info();
+}
+
+void on_obs(Reader &r) {
+  DeckInfo next = deck_info();
+  const uint8_t flags = r.u8();
+  r.text(next.obs_time, sizeof next.obs_time);
+  r.text(next.obs_scene, sizeof next.obs_scene);
+  next.obs_dropped = r.u16();
+  next.obs_cpu = r.u8();
+  if (!r.ok) return;
+  next.obs_connected = flags & 1;
+  next.obs_rec = flags & 2;
+  next.obs_live = flags & 4;
+  next.obs_paused = flags & 8;
+  DeckInfo &info = deck_info();
+  const bool changed = info.obs_connected != next.obs_connected || info.obs_rec != next.obs_rec ||
+                       info.obs_live != next.obs_live || info.obs_paused != next.obs_paused ||
+                       info.obs_dropped != next.obs_dropped || info.obs_cpu != next.obs_cpu ||
+                       strcmp(info.obs_time, next.obs_time) || strcmp(info.obs_scene, next.obs_scene);
   info = next;
   if (changed) deck_refresh_info();
 }
@@ -286,6 +332,8 @@ void dispatch() {
     case STATE: on_state(r); break;
     case INFO: on_info(r); break;
     case ACK: on_ack(r); break;
+    case OBS: on_obs(r); break;
+    case KEY_IMAGE: on_key_image(r); break;
     default: break;  // gói của trang Máy tính CYD-EEZ (STATS, PROCS): bỏ qua
   }
 }
@@ -293,6 +341,7 @@ void dispatch() {
 }  // namespace
 
 void link_init() {
+  lang_load();
   size_t length = 0;
   const uint8_t *blob = store_layout(&length);
   if (blob && apply_layout(blob, length)) {
@@ -305,7 +354,7 @@ void link_init() {
 }
 
 void link_poll() {
-  int budget = 1024;  // không giữ loop() quá lâu khi PC gửi dồn
+  int budget = 4096;  // không giữ loop() quá lâu khi PC gửi dồn (921600 baud ≈ 90 KB/s)
   while (budget-- > 0 && Serial.available() > 0) {
     const uint8_t b = (uint8_t)Serial.read();
     switch (rx) {
@@ -352,14 +401,21 @@ void link_poll() {
     }
   }
   DeckInfo &info = deck_info();
-#if defined(CYD_PERF_DEMO) && CYD_PERF_DEMO == 3
-  return;  // bản chụp màn hình: trạng thái "đã nối" là dữ liệu mẫu (shot.cpp), không có PC gửi INFO
+#if defined(CYD_PERF_DEMO) && (CYD_PERF_DEMO == 3 || CYD_PERF_DEMO == 4)
+  return;  // ảnh chụp và bản đo: trạng thái "đã nối" là dữ liệu mẫu, không có PC gửi INFO
 #endif
   if (info.online && millis() - last_info_ms > ONLINE_MS) {
     info.online = false;
+    info.media_title[0] = '\0';
     deck_refresh_info();
     Serial.println("[DECK] Mat noi voi PC");
   }
 }
 
-void link_press(int page, int key, bool hold) { Serial.printf("[DECK] bam %d %d %d\n", page, key, hold ? 1 : 0); }
+void link_key_down(int page, int key) { Serial.printf("[DECK] xuong %d %d\n", page, key); }
+
+void link_key_up(int page, int key, bool cancelled) {
+  Serial.printf("[DECK] %s %d %d\n", cancelled ? "huy" : "len", page, key);
+}
+
+void link_page(int page) { Serial.printf("[DECK] trang %d\n", page); }

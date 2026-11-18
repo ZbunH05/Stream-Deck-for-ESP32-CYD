@@ -12,21 +12,24 @@
 #include "../app/motion.h"
 #include "../cyd/cyd_hw.h"
 #include "deck.h"
+#include "lang.h"
 #include "sample.h"
 
 namespace {
 
-const char *const NAMES[] = {"trang1", "trang2", "obs", "hoso", "cho-pc"};
+// Mỗi cảnh chụp hai lượt: lượt 0 tiếng Việt, lượt 1 English (ảnh <tên>-0.png, <tên>-1.png)
+const char *const NAMES[] = {"trang1", "trang2", "obs", "cho-pc"};
 constexpr int COUNT = sizeof NAMES / sizeof NAMES[0];
+constexpr int ROUNDS = 2;
 constexpr uint32_t START_MS = 4000;
 
-int step = -1;
+int step = -1, round_no = 0;
 uint32_t opened_ms = 0, quiet_since = 0;
 bool done = false;
 char row[3072];
 
 void dump(const char *name) {
-  Serial.printf("\n[SHOT] begin %s 0\n", name);
+  Serial.printf("\n[SHOT] begin %s %d\n", name, round_no);
   for (int y = 0; y < CYD_SCREEN_H; y++) {
     int len = snprintf(row, sizeof row, "[SHOT] %d", y);
     uint16_t color = cyd_read_pixel(0, y);
@@ -47,12 +50,19 @@ void dump(const char *name) {
   Serial.printf("[SHOT] end %s\n", name);
 }
 
+// Bắt đầu một lượt: ngôn ngữ của lượt, bộ phím mẫu và dữ liệu mẫu (nhạc đang phát, OBS đang ghi)
+void begin_round() {
+  lang_set(round_no == 0 ? Lang::Vi : Lang::En);
+  sample_load();  // ảnh chụp luôn dùng bộ phím mẫu, dù bo đã có bộ phím từ PC
+  sample_demo_state();
+}
+
 void open(int index) {
-  DeckProfile &p = deck_profile();
   DeckInfo &info = deck_info();
   switch (index) {
     case 0:
       deck_go(0, false);
+      deck_refresh();
       deck_feedback(0, 4, true, true);  // phím Mic vừa bấm: PC báo xong
       break;
     case 1:
@@ -61,14 +71,8 @@ void open(int index) {
     case 2:
       deck_go(2, true);
       break;
-    case 3:  // PC chuyển app: hồ sơ đổi, viên thông báo ở đỉnh màn
+    case 3:
       deck_go(0, true);
-      strlcpy(p.name, "Chỉnh video", sizeof p.name);
-      deck_profile_switched();
-      break;
-    case 4:
-      motion_island_hide(false);
-      strlcpy(p.name, "Mặc định", sizeof p.name);
       info.online = false;
       strlcpy(info.clock, "--:--", sizeof info.clock);
       deck_refresh();
@@ -83,9 +87,8 @@ void shot_loop() {
   if (done || now < START_MS) return;
   lv_display_trigger_activity(nullptr);
   if (step < 0) {
-    Serial.printf("\n[SHOT] tong %d\n", COUNT);
-    sample_load();  // ảnh chụp luôn dùng bộ phím mẫu, dù bo đã có bộ phím từ PC
-    sample_demo_state();
+    Serial.printf("\n[SHOT] tong %d\n", COUNT * ROUNDS);
+    begin_round();
     step = 0;
     opened_ms = now;
     open(0);
@@ -99,9 +102,13 @@ void shot_loop() {
   if (now - quiet_since < 700 || now - opened_ms < 1500) return;
   dump(NAMES[step]);
   if (++step == COUNT) {
-    Serial.println("[SHOT] xong");
-    done = true;
-    return;
+    if (++round_no == ROUNDS) {
+      Serial.println("[SHOT] xong");
+      done = true;
+      return;
+    }
+    step = 0;
+    begin_round();
   }
   opened_ms = millis();
   quiet_since = 0;

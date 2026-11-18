@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CYD Deck plugin host</title>
+<!--
+  Trang này chạy trong một Edge ẩn (headless) do CydAgent mở khi cần:
+  - mỗi plugin HTML/JS của Stream Deck là một iframe cùng nguồn, được gọi connectElgatoStreamDeckSocket(...) như app
+    Stream Deck của Elgato làm;
+  - đổi ảnh SVG (setImage của plugin) sang PNG để agent vẽ lên phím.
+  Nói chuyện với agent qua WebSocket của ElgatoHost (cổng và mã trong địa chỉ trang).
+-->
+</head>
+<body>
+<script>
+'use strict';
+const q = new URLSearchParams(location.search);
+const PORT = q.get('port');
+const HOST = q.get('host');
+const frames = new Map();
+let ws = null;
+
+function send(message) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
+}
+
+function connect() {
+  ws = new WebSocket('ws://127.0.0.1:' + PORT);
+  ws.onopen = () => send({event: 'registerHost', uuid: HOST});
+  ws.onmessage = (e) => {
+    let m;
+    try { m = JSON.parse(e.data); } catch (err) { return; }
+    if (m.event === 'loadPlugin') load(m);
+    else if (m.event === 'unloadPlugin') unload(m.uuid);
+    else if (m.event === 'render') render(m.id, m.svg);
+  };
+  ws.onclose = () => setTimeout(connect, 1000);
+}
+
+function unload(uuid) {
+  const old = frames.get(uuid);
+  if (old) old.remove();
+  frames.delete(uuid);
+}
+
+function load(m) {
+  unload(m.uuid);
+  const frame = document.createElement('iframe');
+  frame.src = m.url;
+  frame.onload = () => {
+    try {
+      const w = frame.contentWindow;
+      const fn = w.connectElgatoStreamDeckSocket || w.connectSocket;
+      if (typeof fn !== 'function') throw new Error('connectElgatoStreamDeckSocket not found');
+      fn.call(w, m.port, m.token, 'registerPlugin', m.info);
+    } catch (err) {
+      send({event: 'hostError', uuid: m.uuid, message: String(err && err.message || err)});
+    }
+  };
+  document.body.appendChild(frame);
+  frames.set(m.uuid, frame);
+}
+
+// SVG (data URL) → PNG 144×144 (agent thu về 72×72)
+async function render(id, svg) {
+  try {
+    const img = new Image();
+    img.src = svg;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 144;
+    canvas.getContext('2d').drawImage(img, 0, 0, 144, 144);
+    send({event: 'rendered', id, png: canvas.toDataURL('image/png')});
+  } catch (err) {
+    send({event: 'rendered', id, png: ''});
+  }
+}
+
+window.addEventListener('error', (e) => send({event: 'hostError', uuid: '', message: String(e.message)}));
+connect();
+</script>
+</body>
+</html>

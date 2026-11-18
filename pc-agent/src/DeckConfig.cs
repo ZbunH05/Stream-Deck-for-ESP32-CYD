@@ -35,7 +35,7 @@ public sealed class DeckAction {
 }
 
 public sealed class DeckKeyConfig {
-  public string Kind { get; set; }  // "empty", "action", "toggle", "folder", "back"
+  public string Kind { get; set; }  // "empty", "action", "toggle", "folder", "back", "plugin"
   public string Title { get; set; }
   public string TitleOn { get; set; }
   public DeckIcon Icon { get; set; }
@@ -43,7 +43,12 @@ public sealed class DeckKeyConfig {
   public DeckAction Action { get; set; }
   public DeckAction Hold { get; set; }  // giữ 0,5 s
   public int Target { get; set; }       // folder: số thứ tự trang (trong deck.json) mở ra
-  public string Live { get; set; }      // "volume": nhãn hiện âm lượng loa
+  public string Live { get; set; }      // "volume": âm lượng loa; "obsvolume": âm lượng nguồn OBS (Action.Target)
+  // plugin Stream Deck (ElgatoHost.cs)
+  public string ActionUuid { get; set; }  // UUID hành động trong manifest của plugin
+  public string Settings { get; set; }    // settings JSON của phím (setSettings của plugin)
+  public string Context { get; set; }     // mã cố định của phím cho plugin
+  public int State { get; set; }          // trạng thái hiện tại (setState)
 }
 
 public sealed class DeckPageConfig {
@@ -55,6 +60,7 @@ public sealed class DeckPageConfig {
 
 public sealed class DeckConfigData {
   public int Version { get; set; }
+  public string Lang { get; set; }  // "vi", "en": trang cài đặt, agent và bo
   public string Name { get; set; }
   public List<DeckPageConfig> Pages { get; set; }
 }
@@ -107,7 +113,9 @@ public static class DeckConfig {
 
   public static DeckConfigData Normalize(DeckConfigData c) {
     if (c == null) c = Default();
-    if (string.IsNullOrWhiteSpace(c.Name)) c.Name = "Mặc định";
+    if (c.Lang != "vi" && c.Lang != "en") c.Lang = I18n.DefaultLang();
+    I18n.Lang = c.Lang;
+    if (string.IsNullOrWhiteSpace(c.Name)) c.Name = c.Lang == "vi" ? "Mặc định" : "Default";
     if (c.Pages == null || c.Pages.Count == 0) c.Pages = Default().Pages;
     if (c.Pages.Count > MAX_PAGES) c.Pages = c.Pages.Take(MAX_PAGES).ToList();
     c.Version = 1;
@@ -122,7 +130,12 @@ public static class DeckConfig {
       for (int k = 0; k < KEYS; k++) {
         var key = page.Keys[k] ?? new DeckKeyConfig();
         page.Keys[k] = key;
-        if (!new[] { "empty", "action", "toggle", "folder", "back" }.Contains(key.Kind)) key.Kind = "empty";
+        if (!new[] { "empty", "action", "toggle", "folder", "back", "plugin" }.Contains(key.Kind)) key.Kind = "empty";
+        if (key.Kind == "plugin") {
+          if (string.IsNullOrEmpty(key.ActionUuid)) key.Kind = "empty";
+          if (string.IsNullOrEmpty(key.Context)) key.Context = Guid.NewGuid().ToString("N");
+          if (key.Settings == null) key.Settings = "{}";
+        }
         if (key.Title == null) key.Title = "";
         if (key.TitleOn == null) key.TitleOn = "";
         if (key.Live == null) key.Live = "";
@@ -145,6 +158,20 @@ public static class DeckConfig {
   static DeckKeyConfig Empty() { return new DeckKeyConfig { Kind = "empty" }; }
   static DeckAction Run(string path, bool admin) { return new DeckAction { Type = "run", Path = path, Args = "", Dir = "", Admin = admin }; }
 
+  // Bộ phím có phím OBS hay trang có thanh OBS: chỉ khi đó agent mới nối OBS
+  public static bool UsesObs(DeckConfigData c) {
+    if (c == null || c.Pages == null) return false;
+    foreach (var page in c.Pages) {
+      if (page.Bar == "obs") return true;
+      foreach (var k in page.Keys) {
+        if ((k.Action != null && k.Action.Type == "obs") || (k.Hold != null && k.Hold.Type == "obs")) return true;
+      }
+    }
+    return false;
+  }
+
+  static string L(string vi, string en) { return I18n.Lang == "vi" ? vi : en; }
+
   public static DeckConfigData Default() {
     string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
     string x86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
@@ -159,37 +186,37 @@ public static class DeckConfig {
       K("action", "CMD admin", G("E756", "#7A1212"), Run(cmd, true)),
       File.Exists(code) ? K("action", "VS Code", App(code), Run(code, false)) : Empty(),
       File.Exists(edge) ? K("action", "Edge", App(edge), Run(edge, false)) : Empty(),
-      K("action", "Phát/Dừng", G("E768", "#1A9E4B"), new DeckAction { Type = "media", Cmd = "playpause" }),
-      K("action", "Bài sau", G("E893", "#2B2C33"), new DeckAction { Type = "media", Cmd = "next" }),
-      new DeckKeyConfig { Kind = "toggle", Title = "Mic", TitleOn = "Mic tắt", Icon = G("E720", "#2E7D4F"),
+      K("action", L("Phát/Dừng", "Play/Pause"), G("E768", "#1A9E4B"), new DeckAction { Type = "media", Cmd = "playpause" }),
+      K("action", L("Bài sau", "Next"), G("E893", "#2B2C33"), new DeckAction { Type = "media", Cmd = "next" }),
+      new DeckKeyConfig { Kind = "toggle", Title = "Mic", TitleOn = L("Mic tắt", "Mic off"), Icon = G("E720", "#2E7D4F"),
                           IconOn = G("EC54", "#B3261E"), Action = new DeckAction { Type = "mic", Cmd = "mute" } },
-      new DeckKeyConfig { Kind = "folder", Title = "Hệ thống", Icon = G("E713", "#4A3A8C"), Target = 2 },
+      new DeckKeyConfig { Kind = "folder", Title = L("Hệ thống", "System"), Icon = G("E713", "#4A3A8C"), Target = 2 },
     };
     var tools = new List<DeckKeyConfig> {
-      K("action", "Thư mục", App(System.IO.Path.Combine(win, "explorer.exe")), Run(System.IO.Path.Combine(win, "explorer.exe"), false)),
+      K("action", L("Thư mục", "Explorer"), App(System.IO.Path.Combine(win, "explorer.exe")), Run(System.IO.Path.Combine(win, "explorer.exe"), false)),
       K("action", "Task Mgr", App(System.IO.Path.Combine(win, @"System32\Taskmgr.exe")),
         new DeckAction { Type = "hotkey", Keys = "Ctrl+Shift+Esc" }),
-      K("action", "Cắt màn", G("E7A8", "#0E6E8C"), new DeckAction { Type = "hotkey", Keys = "Win+Shift+S" }),
-      K("action", "Khóa máy", G("E72E", "#2B2C33"), new DeckAction { Type = "lock" }),
-      K("action", "Nhỏ lại", G("E993", "#2B2C33"), new DeckAction { Type = "volume", Cmd = "down" }),
-      K("action", "To lên", G("E995", "#2B2C33"), new DeckAction { Type = "volume", Cmd = "up" }),
-      new DeckKeyConfig { Kind = "toggle", Title = "Loa", TitleOn = "Tắt tiếng", Icon = G("E767", "#2B2C33"),
+      K("action", L("Cắt màn", "Snip"), G("E7A8", "#0E6E8C"), new DeckAction { Type = "hotkey", Keys = "Win+Shift+S" }),
+      K("action", L("Khóa máy", "Lock PC"), G("E72E", "#2B2C33"), new DeckAction { Type = "lock" }),
+      K("action", L("Nhỏ lại", "Vol -"), G("E993", "#2B2C33"), new DeckAction { Type = "volume", Cmd = "down" }),
+      K("action", L("To lên", "Vol +"), G("E995", "#2B2C33"), new DeckAction { Type = "volume", Cmd = "up" }),
+      new DeckKeyConfig { Kind = "toggle", Title = L("Loa", "Speaker"), TitleOn = L("Tắt tiếng", "Muted"), Icon = G("E767", "#2B2C33"),
                           IconOn = G("E74F", "#B3261E"), Action = new DeckAction { Type = "volume", Cmd = "mute" }, Live = "volume" },
       Empty(),
     };
     var system = new List<DeckKeyConfig> {
-      new DeckKeyConfig { Kind = "back", Title = "Quay ra" },
-      K("action", "Cài đặt", G("E713", "#2B2C33"), new DeckAction { Type = "open", Target = "ms-settings:" }),
+      new DeckKeyConfig { Kind = "back", Title = L("Quay ra", "Back") },
+      K("action", L("Cài đặt", "Settings"), G("E713", "#2B2C33"), new DeckAction { Type = "open", Target = "ms-settings:" }),
       K("action", "PS admin", G("E756", "#7A1212"), Run(ps, true)),
-      K("action", "Thiết bị", G("E7F4", "#2B2C33"), new DeckAction { Type = "open", Target = "devmgmt.msc" }),
+      K("action", L("Thiết bị", "Devices"), G("E7F4", "#2B2C33"), new DeckAction { Type = "open", Target = "devmgmt.msc" }),
       Empty(), Empty(), Empty(), Empty(),
     };
     return new DeckConfigData {
-      Version = 1, Name = "Mặc định",
+      Version = 1, Lang = I18n.Lang, Name = L("Mặc định", "Default"),
       Pages = new List<DeckPageConfig> {
-        new DeckPageConfig { Name = "Làm việc", Parent = -1, Bar = "info", Keys = work },
-        new DeckPageConfig { Name = "Công cụ", Parent = -1, Bar = "info", Keys = tools },
-        new DeckPageConfig { Name = "Hệ thống", Parent = 0, Bar = "info", Keys = system },
+        new DeckPageConfig { Name = L("Làm việc", "Work"), Parent = -1, Bar = "info", Keys = work },
+        new DeckPageConfig { Name = L("Công cụ", "Tools"), Parent = -1, Bar = "info", Keys = tools },
+        new DeckPageConfig { Name = L("Hệ thống", "System"), Parent = 0, Bar = "info", Keys = system },
       }
     };
   }
@@ -218,9 +245,13 @@ public static class DeckConfig {
       case "toggle": return 2;
       case "folder": return 3;
       case "back": return 4;
+      case "plugin": return 5;
       default: return 0;
     }
   }
+
+  // Ảnh trạng thái `state` (0, 1) của phím plugin, vẽ từ manifest của plugin (ElgatoHost.cs gắn vào); null: không có
+  public static Func<DeckKeyConfig, int, bool, byte[]> PluginArt;
 
   public static DeckLayout Build(DeckConfigData config) {
     var layout = new DeckLayout { Config = config };
@@ -238,6 +269,7 @@ public static class DeckConfig {
       w.Write((byte)n);
       w.Write((byte)layout.TopPages);
       Text(w, config.Name, TITLE_BYTES);
+      w.Write((byte)(config.Lang == "vi" ? 0 : 1));  // ngôn ngữ chữ trên bo
       w.Flush();
       payloads.Add(new KeyValuePair<byte, byte[]>(DeckSync.LAYOUT_BEGIN, ms.ToArray()));
     }
@@ -254,7 +286,10 @@ public static class DeckConfig {
           w.Write(KindCode(key.Kind));
           w.Write((byte)(folder ? layout.BoardOf[key.Target] : 0));
           uint normal = 0, lit = 0;
-          if (key.Kind != "empty" && key.Kind != "back") {
+          if (key.Kind == "plugin") {
+            normal = AddPixels(layout, PluginArt != null ? PluginArt(key, 0, key.Title.Length > 0) : null);
+            lit = AddPixels(layout, PluginArt != null ? PluginArt(key, 1, key.Title.Length > 0) : null);
+          } else if (key.Kind != "empty" && key.Kind != "back") {
             normal = AddImage(layout, key.Icon, key.Title, folder);
             if (key.Kind == "toggle" && key.IconOn != null && key.IconOn.Type != "none") {
               lit = AddImage(layout, key.IconOn, key.TitleOn.Length > 0 ? key.TitleOn : key.Title, false);
@@ -286,6 +321,13 @@ public static class DeckConfig {
 
   static readonly Dictionary<string, byte[]> renderCache = new Dictionary<string, byte[]>();
   static readonly object renderGate = new object();
+
+  static uint AddPixels(DeckLayout layout, byte[] px) {
+    if (px == null) return 0;
+    uint hash = Crc32.Update(0, px);
+    layout.Images[hash] = px;
+    return hash;
+  }
 
   static uint AddImage(DeckLayout layout, DeckIcon icon, string title, bool folder) {
     byte[] px;

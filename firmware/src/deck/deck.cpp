@@ -9,7 +9,9 @@
 #include "../app/theme.h"
 #include "../cyd/cyd_hw.h"
 #include "../ui/fonts.h"
+#include "lang.h"
 #include "link.h"
+#include "ramimg.h"
 #include "store.h"
 
 namespace {
@@ -35,6 +37,7 @@ struct KeyView {
 
 struct BarView {
   lv_obj_t *box, *prev, *next, *prev_icon, *next_icon, *row, *dot, *unlink, *clock, *title, *sub, *stats;
+  lv_obj_t *track, *fill;  // vạch tiến độ bài đang phát (dưới hai dòng chữ)
   lv_obj_t *pages[PAGE_DOTS];
 };
 
@@ -48,6 +51,7 @@ struct ScreenView {
 ScreenView views[2];
 int current = 0;       // views[current] đang hiện
 bool gestured = false;  // lần chạm này đã thành cử chỉ vuốt: không tính là bấm phím
+int pressed_slot = -1;  // phím lệnh đang đè, đã báo "xuống" cho PC (chờ báo "lên")
 
 // ---------- style dùng chung ----------
 // Như CYD-EEZ (src/ui/styles.cpp): chạm xuống phủ trắng ~10 % trong 50 ms, nhả tay nhạt dần 260 ms; độ thu và lò xo
@@ -56,6 +60,7 @@ const lv_style_prop_t HIGHLIGHT_PROPS[] = {LV_STYLE_RECOLOR_OPA, LV_STYLE_RECOLO
 lv_style_transition_dsc_t press_transition, release_transition;
 lv_style_t st_screen, st_key, st_pressed, st_bar, st_ghost, st_title, st_icon, st_badge, st_dot;
 lv_style_t st_clock, st_bar_title, st_bar_sub, st_stats, st_row, st_col, st_unlink, st_page_dot, st_ring;
+lv_style_t st_track, st_fill;
 
 lv_color_t col(Pal p) { return lv_color_hex(theme_color(p)); }
 
@@ -139,6 +144,15 @@ void styles_init() {
   lv_style_set_flex_track_place(&st_row, LV_FLEX_ALIGN_CENTER);
   lv_style_set_pad_column(&st_row, 8);
 
+  lv_style_init(&st_track);
+  lv_style_set_bg_opa(&st_track, LV_OPA_COVER);
+  lv_style_set_bg_color(&st_track, col(Pal::key));
+  lv_style_set_radius(&st_track, 1);
+  lv_style_init(&st_fill);
+  lv_style_set_bg_opa(&st_fill, LV_OPA_COVER);
+  lv_style_set_bg_color(&st_fill, col(Pal::accent));
+  lv_style_set_radius(&st_fill, 1);
+
   lv_style_init(&st_ring);
   lv_style_set_radius(&st_ring, RADIUS);
   lv_style_set_border_width(&st_ring, 2);
@@ -175,6 +189,36 @@ void set_text(lv_obj_t *obj, const char *text) {
   const char *now = lv_label_get_text(obj);
   if (now && strcmp(now, text) == 0) return;
   lv_label_set_text(obj, text);
+}
+
+// Các hàm đặt thuộc tính chỉ khi giá trị khác: LVGL vẽ lại đối tượng mỗi lần đặt style riêng, kể cả cùng giá trị.
+// Trước 19/11/2026 mỗi gói thanh tin (mỗi giây) đặt lại độ mờ của 8 phím, nên bo vẽ lại cả lưới phím mỗi giây.
+void show(lv_obj_t *obj, bool visible) {
+  if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) != visible) return;
+  if (visible) lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
+  else lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
+}
+
+void text_color(lv_obj_t *obj, Pal pal) {
+  const lv_color_t c = col(pal);
+  if (!lv_color_eq(lv_obj_get_style_text_color(obj, LV_PART_MAIN), c)) lv_obj_set_style_text_color(obj, c, 0);
+}
+
+void bg_color(lv_obj_t *obj, Pal pal) {
+  const lv_color_t c = col(pal);
+  if (!lv_color_eq(lv_obj_get_style_bg_color(obj, LV_PART_MAIN), c)) lv_obj_set_style_bg_color(obj, c, 0);
+}
+
+void set_opa(lv_obj_t *obj, lv_opa_t opa) {
+  if (lv_obj_get_style_opa(obj, LV_PART_MAIN) != opa) lv_obj_set_style_opa(obj, opa, 0);
+}
+
+void set_width(lv_obj_t *obj, int32_t w) {
+  if (lv_obj_get_style_width(obj, LV_PART_MAIN) != w) lv_obj_set_width(obj, w);
+}
+
+void set_x(lv_obj_t *obj, int32_t x) {
+  if (lv_obj_get_style_x(obj, LV_PART_MAIN) != x) lv_obj_set_x(obj, x);
 }
 
 // ---------- điều hướng ----------
@@ -215,6 +259,7 @@ void go(int index, bool animate) {
   if (!animate || now.page < 0) {
     bind(now, index);
     if (lv_screen_active() != now.screen) lv_screen_load(now.screen);
+    link_page(index);
     return;
   }
   if (now.page == index) return;
@@ -229,7 +274,7 @@ void go(int index, bool animate) {
   bind(views[next], index);
   current = next;
   motion_push(views[next].screen, back, page_shown);
-  Serial.printf("[DECK] Trang %d (%s)\n", index, profile.pages[index].name);
+  link_page(index);  // PC: willAppear/willDisappear cho phím plugin, gửi ảnh RAM của trang mới
 }
 
 void flip(int step) {
@@ -374,10 +419,50 @@ void ring_clear(KeyView &k) {
 
 void on_pressed(lv_event_t *) { gestured = false; }
 
+bool is_command(KeyKind kind) { return kind == KeyKind::Action || kind == KeyKind::Toggle || kind == KeyKind::Plugin; }
+
+// Nhả phím lệnh đang đè: báo "lên" (hay "huỷ" khi vuốt, kéo ra ngoài) cho PC. PC tự tính chạm hay giữ 0,5 s
+// (lệnh thường) và gửi keyDown/keyUp cho plugin.
+void key_release(bool cancelled) {
+  if (pressed_slot < 0) return;
+  const int slot = pressed_slot;
+  pressed_slot = -1;
+  const int page = views[current].page;
+  const DeckPage *p = page_at(page);
+  if (!p) return;
+  if (!cancelled && p->keys[slot].kind != KeyKind::Plugin) ring_wait(views[current].keys[slot]);
+  link_key_up(page, slot, cancelled);
+}
+
 void on_key_pressed(lv_event_t *event) {
   gestured = false;
   if (motion_pushing()) return;
   ripple_start(static_cast<lv_obj_t *>(lv_event_get_current_target(event)));
+  const int slot = (int)(intptr_t)lv_event_get_user_data(event);
+  const int page = views[current].page;
+  const DeckPage *p = page_at(page);
+  if (!p || !is_command(p->keys[slot].kind) || !info.online) return;
+  key_release(true);  // phòng khi lần trước chưa báo nhả
+  pressed_slot = slot;
+  link_key_down(page, slot);
+}
+
+void on_key_released(lv_event_t *event) {
+  const int slot = (int)(intptr_t)lv_event_get_user_data(event);
+  if (pressed_slot == slot) {
+    key_release(gestured || motion_pushing());
+    return;
+  }
+  // chưa nối PC: phím lệnh không làm gì, báo cho người dùng
+  const DeckPage *p = page_at(views[current].page);
+  if (!gestured && !motion_pushing() && p && is_command(p->keys[slot].kind) && !info.online) {
+    motion_island_show(tr(Str::NoPc), ICON_P_UNLINK, theme().orange);
+    deck_feedback(views[current].page, slot, false);
+  }
+}
+
+void on_key_lost(lv_event_t *event) {
+  if (pressed_slot == (int)(intptr_t)lv_event_get_user_data(event)) key_release(true);
 }
 
 void on_gesture(lv_event_t *) {
@@ -385,38 +470,20 @@ void on_gesture(lv_event_t *) {
   const lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
   if (dir != LV_DIR_LEFT && dir != LV_DIR_RIGHT) return;
   gestured = true;
+  key_release(true);
   lv_indev_wait_release(lv_indev_active());  // phím đang bị đè không nhận "bấm" khi nhả tay
   flip(dir == LV_DIR_LEFT ? 1 : -1);
 }
 
+// Phím thư mục và phím ‹: bo tự xử lý, không qua PC
 void on_key(lv_event_t *event) {
   if (gestured || motion_pushing()) return;
   const int slot = (int)(intptr_t)lv_event_get_user_data(event);
-  const bool hold = lv_event_get_code(event) == LV_EVENT_LONG_PRESSED;
-  const int page = views[current].page;
-  const DeckPage *p = page_at(page);
+  const DeckPage *p = page_at(views[current].page);
   if (!p) return;
   const DeckKey &key = p->keys[slot];
-  switch (key.kind) {
-    case KeyKind::Folder:
-      if (!hold) go(key.target, true);
-      break;
-    case KeyKind::Back:
-      if (!hold && p->parent >= 0) go(p->parent, true);
-      break;
-    case KeyKind::Action:
-    case KeyKind::Toggle:
-      if (!info.online) {
-        motion_island_show("Chưa nối máy tính: mở CydAgent trên PC", ICON_P_UNLINK, theme().orange);
-        deck_feedback(page, slot, false);
-        break;
-      }
-      ring_wait(views[current].keys[slot]);
-      link_press(page, slot, hold);
-      break;
-    case KeyKind::Empty:
-      break;
-  }
+  if (key.kind == KeyKind::Folder) go(key.target, true);
+  else if (key.kind == KeyKind::Back && p->parent >= 0) go(p->parent, true);
 }
 
 void on_prev(lv_event_t *) { flip(-1); }
@@ -434,9 +501,10 @@ void build_key(ScreenView &view, int slot) {
   lv_obj_set_size(k.btn, KEY, KEY);
   lv_obj_add_flag(k.btn, LV_OBJ_FLAG_CLICKABLE);
   motion_press_feedback(k.btn, 0.92f);  // lún sâu hơn nút của CYD-EEZ (0,96): phím là thứ duy nhất để bấm
-  lv_obj_add_event_cb(k.btn, on_key_pressed, LV_EVENT_PRESSED, nullptr);
+  lv_obj_add_event_cb(k.btn, on_key_pressed, LV_EVENT_PRESSED, (void *)(intptr_t)slot);
+  lv_obj_add_event_cb(k.btn, on_key_released, LV_EVENT_RELEASED, (void *)(intptr_t)slot);
+  lv_obj_add_event_cb(k.btn, on_key_lost, LV_EVENT_PRESS_LOST, (void *)(intptr_t)slot);
   lv_obj_add_event_cb(k.btn, on_key, LV_EVENT_SHORT_CLICKED, (void *)(intptr_t)slot);
-  lv_obj_add_event_cb(k.btn, on_key, LV_EVENT_LONG_PRESSED, (void *)(intptr_t)slot);
 
   // icon do bo tự vẽ (phím ‹ của thư mục); phím có ảnh thì ẩn
   k.icon = label(k.btn, &st_icon);
@@ -510,7 +578,7 @@ void build_bar(ScreenView &view) {
 
   lv_obj_t *column = box(row);
   lv_obj_add_style(column, &st_col, 0);
-  lv_obj_set_height(column, 40);
+  lv_obj_set_height(column, 44);
   lv_obj_set_flex_grow(column, 1);
 
   b.title = label(column, &st_bar_title);
@@ -520,6 +588,16 @@ void build_bar(ScreenView &view) {
   b.sub = label(column, &st_bar_sub);
   lv_label_set_long_mode(b.sub, LV_LABEL_LONG_MODE_DOTS);
   lv_obj_set_size(b.sub, lv_pct(100), 20);
+
+  // vạch tiến độ 2 px dưới dòng "nghệ sĩ · app": rãnh mờ, phần đã phát màu nhấn
+  b.track = box(column);
+  lv_obj_add_style(b.track, &st_track, 0);
+  lv_obj_set_size(b.track, lv_pct(100), 2);
+  lv_obj_set_style_margin_top(b.track, 2, 0);
+  b.fill = box(b.track);
+  lv_obj_add_style(b.fill, &st_fill, 0);
+  lv_obj_set_size(b.fill, 0, 2);
+  lv_obj_add_flag(b.track, LV_OBJ_FLAG_HIDDEN);
 
   b.stats = label(b.box, &st_stats);
   lv_label_set_recolor(b.stats, true);
@@ -550,11 +628,12 @@ void build_view(ScreenView &view) {
 
 // ---------- đổ dữ liệu ----------
 
-void bind_key(KeyView &k, const DeckKey &key) {
+void bind_key(KeyView &k, const DeckKey &key, int page, int slot) {
   const bool on = key.kind == KeyKind::Toggle && key.on;
-  const lv_image_dsc_t *normal = key.image ? key.image : store_find(key.image_hash);
+  const lv_image_dsc_t *ram = ramimg_find((uint8_t)page, (uint8_t)slot);  // ảnh plugin đặt lúc chạy
+  const lv_image_dsc_t *normal = ram ? ram : key.image ? key.image : store_find(key.image_hash);
   const lv_image_dsc_t *lit = key.image_on ? key.image_on : store_find(key.image_on_hash);
-  const lv_image_dsc_t *image = on && lit ? lit : normal;  // ảnh chưa về kho: phím chỉ có nền và nhãn
+  const lv_image_dsc_t *image = on && lit && !ram ? lit : normal;  // ảnh chưa về kho: phím chỉ có nền và nhãn
   const char *title = on && key.title_on[0] ? key.title_on : key.title;
   if (key.live[0]) title = key.live;
 
@@ -573,7 +652,7 @@ void bind_key(KeyView &k, const DeckKey &key) {
   if (key.kind == KeyKind::Back) {
     set_text(k.icon, ICON_NAV_BACK);
     lv_obj_remove_flag(k.icon, LV_OBJ_FLAG_HIDDEN);
-    title = key.title[0] ? key.title : "Quay ra";
+    title = key.title[0] ? key.title : tr(Str::Back);
   } else {
     lv_obj_add_flag(k.icon, LV_OBJ_FLAG_HIDDEN);
   }
@@ -593,81 +672,87 @@ void bind_bar(ScreenView &view) {
   char text[96];
 
   const bool can_prev = !folder && top > 0, can_next = !folder && top + 1 < profile.top_pages;
-  lv_obj_set_style_text_color(b.prev_icon, col(can_prev ? Pal::text : Pal::muted), 0);
-  lv_obj_set_style_text_color(b.next_icon, col(can_next ? Pal::text : Pal::muted), 0);
+  text_color(b.prev_icon, can_prev ? Pal::text : Pal::muted);
+  text_color(b.next_icon, can_next ? Pal::text : Pal::muted);
 
   // chấm trang: chỉ ở trang chính và khi có hơn một trang
   const int dots = folder || profile.top_pages < 2 ? 0 : min<int>(profile.top_pages, PAGE_DOTS);
   const int32_t dots_x = (BAR_W - (dots * 4 + (dots - 1) * 5)) / 2;
   for (int i = 0; i < PAGE_DOTS; i++) {
-    if (i >= dots) {
-      lv_obj_add_flag(b.pages[i], LV_OBJ_FLAG_HIDDEN);
-      continue;
-    }
-    lv_obj_remove_flag(b.pages[i], LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_x(b.pages[i], dots_x + i * 9);
-    lv_obj_set_style_bg_color(b.pages[i], col(i == top ? Pal::text : Pal::muted), 0);
+    show(b.pages[i], i < dots);
+    if (i >= dots) continue;
+    set_x(b.pages[i], dots_x + i * 9);
+    bg_color(b.pages[i], i == top ? Pal::text : Pal::muted);
   }
 
   const bool online = info.online;
-  if (online) {
-    lv_obj_add_flag(b.unlink, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(b.clock, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_remove_flag(b.stats, LV_OBJ_FLAG_HIDDEN);
-  } else {
-    lv_obj_remove_flag(b.unlink, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(b.clock, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_flag(b.stats, LV_OBJ_FLAG_HIDDEN);
-  }
-  // không có cột CPU/RAM thì chữ dùng luôn chỗ đó
-  lv_obj_set_width(b.row, online ? ROW_W : ROW_W + STATS_W + 2);
+  show(b.unlink, !online);
+  show(b.clock, online);
+  show(b.stats, online);
+  set_width(b.row, online ? ROW_W : ROW_W + STATS_W + 2);  // không có cột CPU/RAM thì chữ dùng luôn chỗ đó
 
   if (!online) {
-    lv_obj_add_flag(b.dot, LV_OBJ_FLAG_HIDDEN);
-    set_text(b.title, "Đang chờ máy tính…");
-    set_text(b.sub, "Mở CydAgent trên PC");
+    show(b.dot, false);
+    show(b.track, false);
+    set_text(b.title, tr(Str::WaitTitle));
+    set_text(b.sub, tr(Str::WaitSub));
     return;
   }
 
   if (page && page->bar == BarMode::Obs) {
-    const bool busy = info.obs_rec || info.obs_live;
-    if (busy) lv_obj_remove_flag(b.dot, LV_OBJ_FLAG_HIDDEN);
-    else lv_obj_add_flag(b.dot, LV_OBJ_FLAG_HIDDEN);
+    show(b.track, false);
+    const bool busy = info.obs_connected && (info.obs_rec || info.obs_live);
+    show(b.dot, busy);
     set_text(b.clock, busy && info.obs_time[0] ? info.obs_time : info.clock);
-    set_text(b.title, info.obs_live ? "OBS · đang live" : info.obs_rec ? "OBS · đang ghi" : "OBS · đang chờ");
-    snprintf(text, sizeof text, "Cảnh: %s", info.obs_scene[0] ? info.obs_scene : "–");
-    set_text(b.sub, text);
-    snprintf(text, sizeof text, "Rớt #%06lX %u#\nCPU #%06lX %u%%#", (unsigned long)theme().green, info.obs_dropped,
-             (unsigned long)theme().green, info.cpu);
+    if (!info.obs_connected) {
+      set_text(b.title, tr(Str::ObsOff));
+      set_text(b.sub, tr(Str::ObsOffSub));
+    } else {
+      set_text(b.title, tr(info.obs_live ? Str::ObsLive : info.obs_paused ? Str::ObsPaused
+                                         : info.obs_rec ? Str::ObsRec : Str::ObsIdle));
+      snprintf(text, sizeof text, tr(Str::SceneFmt), info.obs_scene[0] ? info.obs_scene : "–");
+      set_text(b.sub, text);
+    }
+    snprintf(text, sizeof text, "%s #%06lX %u#\nCPU #%06lX %u%%#", tr(Str::Drop),
+             (unsigned long)(info.obs_dropped ? theme().orange : theme().green), info.obs_dropped,
+             (unsigned long)theme().green, info.obs_connected ? info.obs_cpu : info.cpu);
     set_text(b.stats, text);
     return;
   }
 
-  lv_obj_add_flag(b.dot, LV_OBJ_FLAG_HIDDEN);
+  show(b.dot, false);
   set_text(b.clock, info.clock);
-  // Dòng trên: bài đang phát (không có thì tên hồ sơ). Dòng dưới: nguồn phát, hay thư mục / tên trang đang mở.
+  // Dòng trên: bài đang phát (không có thì tên hồ sơ). Dòng dưới: "nghệ sĩ · app", hay thư mục / tên trang đang mở.
+  const bool media = info.media_title[0] != '\0';
   if (folder) {
-    snprintf(text, sizeof text, "Thư mục %s", page->name);
-  } else if (info.media_title[0]) {
-    snprintf(text, sizeof text, "%s", info.media_source[0] ? info.media_source : "Đang phát");
+    snprintf(text, sizeof text, tr(Str::FolderFmt), page->name);
+  } else if (media) {
+    snprintf(text, sizeof text, "%s", info.media_sub[0] ? info.media_sub : tr(Str::Playing));
   } else {
     snprintf(text, sizeof text, "%s", page ? page->name : "");
   }
-  set_text(b.title, info.media_title[0] ? info.media_title : profile.name);
+  set_text(b.title, media ? info.media_title : profile.name);
   set_text(b.sub, text);
+  const bool progress = media && info.progress <= 1000;
+  show(b.track, progress);
+  if (progress) {
+    const int32_t w = lv_obj_get_width(b.track);
+    set_width(b.fill, w * info.progress / 1000);
+    bg_color(b.fill, info.playing ? Pal::accent : Pal::muted);
+  }
   snprintf(text, sizeof text, "CPU #%06lX %u%%#\nRAM #%06lX %u%%#", (unsigned long)theme().green, info.cpu,
            (unsigned long)theme().accent, info.ram);
   set_text(b.stats, text);
 }
 
 void bind_opacity(ScreenView &view) {
-  for (KeyView &k : view.keys) lv_obj_set_style_opa(k.btn, info.online ? (lv_opa_t)LV_OPA_COVER : OFFLINE_OPA, 0);
+  for (KeyView &k : view.keys) set_opa(k.btn, info.online ? (lv_opa_t)LV_OPA_COVER : OFFLINE_OPA);
 }
 
 void bind(ScreenView &view, int index) {
   view.page = index;
   const DeckPage &page = profile.pages[index];
-  for (int slot = 0; slot < DECK_KEYS; slot++) bind_key(view.keys[slot], page.keys[slot]);
+  for (int slot = 0; slot < DECK_KEYS; slot++) bind_key(view.keys[slot], page.keys[slot], index, slot);
   bind_opacity(view);
   bind_bar(view);
 }
@@ -720,11 +805,16 @@ void deck_refresh_key(int key) {
   KeyView &k = view.keys[key];
   const DeckKey &def = profile.pages[view.page].keys[key];
   if (def.kind == KeyKind::Back || def.kind == KeyKind::Empty) return;
-  const lv_image_dsc_t *normal = def.image ? def.image : store_find(def.image_hash);
+  const lv_image_dsc_t *ram = ramimg_find((uint8_t)view.page, (uint8_t)key);
+  const lv_image_dsc_t *normal = ram ? ram : def.image ? def.image : store_find(def.image_hash);
   const lv_image_dsc_t *lit = def.image_on ? def.image_on : store_find(def.image_on_hash);
   const bool on = def.kind == KeyKind::Toggle && def.on;
-  lv_obj_set_style_bg_image_src(k.btn, on && lit ? lit : normal, 0);
-  lv_obj_set_style_radius(k.btn, (on && lit) || normal ? 0 : RADIUS, 0);
+  const lv_image_dsc_t *image = on && lit && !ram ? lit : normal;
+  if (lv_obj_get_style_bg_image_src(k.btn, LV_PART_MAIN) != image) lv_obj_set_style_bg_image_src(k.btn, image, 0);
+  // ảnh RAM vừa đổi nội dung mà giữ nguyên địa chỉ dsc: vẽ lại cho chắc
+  if (ram) lv_obj_invalidate(k.btn);
+  const int32_t radius = image ? 0 : RADIUS;
+  if (lv_obj_get_style_radius(k.btn, LV_PART_MAIN) != radius) lv_obj_set_style_radius(k.btn, radius, 0);
   const char *title = on && def.title_on[0] ? def.title_on : def.title;
   set_text(k.title, def.live[0] ? def.live : title);
 }
@@ -751,7 +841,7 @@ void deck_feedback(int page, int key, bool ok, bool hold) {
 
 void deck_profile_switched() {
   char text[48];
-  snprintf(text, sizeof text, "Hồ sơ: %s", profile.name);
+  snprintf(text, sizeof text, tr(Str::Profile), profile.name);
   motion_island_show(text, ICON_S_SYNC, theme().accent);
 }
 

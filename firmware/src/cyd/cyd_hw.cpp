@@ -246,6 +246,12 @@ static void flush_wait_cb(lv_display_t *disp) {
 
 static CydTouch touch_state = {};
 
+// Màn cảm ứng điện trở: ấn nhẹ thì tín hiệu chập chờn, một lần chạm thành nhiều lần nhấn/nhả (18/11/2026 thấy 7 lần
+// trong một giây ở một phím). Chỉ tính là nhả khi đã không chạm liên tục RELEASE_HOLD_MS; giữa hai lần chạm thật ngón
+// tay nhấc lên lâu hơn nhiều nên vẫn đủ lần.
+static constexpr uint32_t RELEASE_HOLD_MS = 50;
+static uint32_t last_contact_ms = 0;
+
 void cyd_touch_state(CydTouch *out) { *out = touch_state; }
 
 static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data) {
@@ -276,6 +282,9 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data) {
     touch_state.pressed = true;
     touch_state.x = x;
     touch_state.y = y;
+    last_contact_ms = now;
+  } else if (touch_state.pressed && now - last_contact_ms < RELEASE_HOLD_MS) {
+    // mất tiếp xúc thoáng qua: vẫn coi là đang chạm, ở toạ độ cũ
   } else {
     touch_state.pressed = false;
   }
@@ -291,8 +300,10 @@ static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data) {
 void cyd_init() {
   // Gói số liệu từ PC (app/pc_link.cpp) đến qua Serial. Bộ đệm nhận mặc định 256 byte chỉ đủ ~20 ms ở 115200 baud,
   // mà một khung LVGL nặng (chuyển trang, đổi theme) có thể giữ loop() lâu hơn: nâng lên 1 KB. Phải đặt trước begin().
-  Serial.setRxBufferSize(1024);
-  Serial.begin(115200);
+  // CydAgent gửi ảnh phím qua đây ở 921600 baud (~90 KB/s): bộ đệm nhận 16 KB đủ cho cả một ảnh trong lúc LVGL vẽ một
+  // khung nặng. Phải đặt trước begin(). (Log khởi động của ROM vẫn ở 115200: đọc ở 921600 thì mấy dòng đầu thành rác.)
+  Serial.setRxBufferSize(16384);
+  Serial.begin(921600);
   delay(50);
   Serial.println();
   Serial.printf("[CYD] CYD-Deck khoi dong | env=%s | LVGL %d.%d.%d | Arduino-ESP32 %d.%d.%d\n",

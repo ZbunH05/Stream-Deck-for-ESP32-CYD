@@ -13,8 +13,11 @@ if not exist "%~dp0bin" mkdir "%~dp0bin"
 "%CSC%" /nologo /target:winexe /platform:x64 /optimize+ /codepage:65001 /warn:4 ^
   /out:"%~dp0bin\CydAgent.exe" ^
   /r:System.Management.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Web.Extensions.dll ^
-  /r:"%FW%\WPF\PresentationCore.dll" /r:"%FW%\WPF\WindowsBase.dll" ^
+  /r:System.Security.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll ^
+  /r:"%FW%\System.Runtime.dll" ^
+  /r:"%WINDIR%\System32\WinMetadata\Windows.Foundation.winmd" /r:"%WINDIR%\System32\WinMetadata\Windows.Media.winmd" ^
   "%~dp0src\*.cs"
+rem WinMetadata: nhac dang phat (DeckMedia.cs), co san trong Windows 10/11, khong can Windows SDK
 if errorlevel 1 (
   echo [LOI] Dich khong duoc
   exit /b 1

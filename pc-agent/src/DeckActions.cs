@@ -80,13 +80,13 @@ static class Input {
     if (name.Length >= 2 && (name[0] == 'F' || name[0] == 'f') && int.TryParse(name.Substring(1), out f) && f >= 1 && f <= 24) {
       return (ushort)(0x70 + f - 1);
     }
-    throw new ArgumentException("Không hiểu phím \"" + name + "\"");
+    throw new ArgumentException(string.Format(I18n.T("action.bad_key"), name));
   }
 
   // "Ctrl+Shift+Esc": nhấn lần lượt, nhả theo thứ tự ngược
   public static void Hotkey(string combo) {
     var keys = (combo ?? "").Split('+').Select(s => s.Trim()).Where(s => s.Length > 0).Select(Parse).ToList();
-    if (keys.Count == 0) throw new ArgumentException("Chưa có tổ hợp phím");
+    if (keys.Count == 0) throw new ArgumentException(I18n.T("action.no_hotkey"));
     var inputs = new List<INPUT>();
     foreach (var vk in keys) inputs.Add(Key(vk, false));
     for (int i = keys.Count - 1; i >= 0; i--) inputs.Add(Key(keys[i], true));
@@ -117,7 +117,7 @@ static class Input {
   static void Send(INPUT[] inputs) {
     uint sent = SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT)));
     if (sent != inputs.Length) {
-      throw new InvalidOperationException("Windows chặn phím ảo (cửa sổ đang mở chạy bằng quyền admin?), mã " +
+      throw new InvalidOperationException(I18n.T("action.input_blocked") + ", " +
                                           Marshal.GetLastWin32Error());
     }
   }
@@ -162,17 +162,38 @@ static class Audio {
 
   const int RENDER = 0, CAPTURE = 1, MULTIMEDIA = 1, CLSCTX_ALL = 23;
 
-  // Mỗi lần gọi lấy lại thiết bị mặc định (người dùng có thể đổi loa/tai nghe bất cứ lúc nào)
+  // Thiết bị mặc định đổi được bất cứ lúc nào (cắm tai nghe...), nên lấy lại 5 giây một lần; giữa hai lần dùng lại đối
+  // tượng cũ. Trước 19/11/2026 mỗi lần đọc (vài lần mỗi giây) tạo enumerator, device, endpoint mới mà không trả COM:
+  // agent phình dần handle và RAM.
+  static readonly object gate = new object();
+  static IMMDeviceEnumerator enumerator;
+  static readonly IAudioEndpointVolume[] cached = new IAudioEndpointVolume[2];
+  static readonly DateTime[] cachedAt = new DateTime[2];
+
   static IAudioEndpointVolume Endpoint(bool mic) {
-    var enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
-    IMMDevice device;
-    if (enumerator.GetDefaultAudioEndpoint(mic ? CAPTURE : RENDER, MULTIMEDIA, out device) != 0 || device == null) {
-      return null;
+    lock (gate) {
+      int i = mic ? 1 : 0;
+      if (cached[i] != null && (DateTime.UtcNow - cachedAt[i]).TotalSeconds < 5) return cached[i];
+      if (cached[i] != null) {
+        Marshal.ReleaseComObject(cached[i]);
+        cached[i] = null;
+      }
+      if (enumerator == null) enumerator = (IMMDeviceEnumerator)new MMDeviceEnumeratorCom();
+      IMMDevice device;
+      if (enumerator.GetDefaultAudioEndpoint(mic ? CAPTURE : RENDER, MULTIMEDIA, out device) != 0 || device == null) {
+        return null;
+      }
+      try {
+        Guid iid = typeof(IAudioEndpointVolume).GUID;
+        object volume;
+        if (device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out volume) != 0) return null;
+        cached[i] = volume as IAudioEndpointVolume;
+        cachedAt[i] = DateTime.UtcNow;
+        return cached[i];
+      } finally {
+        Marshal.ReleaseComObject(device);
+      }
     }
-    Guid iid = typeof(IAudioEndpointVolume).GUID;
-    object volume;
-    if (device.Activate(ref iid, CLSCTX_ALL, IntPtr.Zero, out volume) != 0) return null;
-    return volume as IAudioEndpointVolume;
   }
 
   public static bool? Muted(bool mic) {
@@ -201,7 +222,7 @@ static class Audio {
 
   public static void ToggleMute(bool mic) {
     var v = Endpoint(mic);
-    if (v == null) throw new InvalidOperationException(mic ? "Không có mic" : "Không có loa");
+    if (v == null) throw new InvalidOperationException(I18n.T(mic ? "action.no_mic" : "action.no_speaker"));
     bool muted;
     v.GetMute(out muted);
     Guid context = Guid.Empty;
@@ -210,7 +231,7 @@ static class Audio {
 
   public static void Step(int delta) {
     var v = Endpoint(false);
-    if (v == null) throw new InvalidOperationException("Không có loa");
+    if (v == null) throw new InvalidOperationException(I18n.T("action.no_speaker"));
     float level;
     v.GetMasterVolumeLevelScalar(out level);
     Guid context = Guid.Empty;
@@ -272,7 +293,7 @@ static class AdminTasks {
     var actions = wanted.GroupBy(NameOf).Select(g => g.First()).ToList();
     var names = new HashSet<string>(actions.Select(NameOf));
     var registered = Registered();
-    if (names.SetEquals(registered)) return names.Count == 0 ? "" : "Lệnh admin đã đăng ký sẵn.";
+    if (names.SetEquals(registered)) return names.Count == 0 ? "" : I18n.T("admin.already");
 
     string work = Path.Combine(DeckConfig.Dir, "admin-tasks");
     if (Directory.Exists(work)) Directory.Delete(work, true);
@@ -301,17 +322,17 @@ static class AdminTasks {
         p.WaitForExit(60000);
         if (!p.HasExited || p.ExitCode != 0) {
           Log.Agent("Đăng ký tác vụ admin lỗi, mã " + (p.HasExited ? p.ExitCode.ToString() : "quá giờ"));
-          return "Không đăng ký được lệnh admin (xem logs\\agent.log). Phím admin sẽ hỏi UAC mỗi lần.";
+          return I18n.T("admin.failed");
         }
       }
     } catch (System.ComponentModel.Win32Exception) {  // người dùng bấm "Không" ở hộp UAC
-      return "Bạn đã từ chối UAC: phím admin sẽ hỏi UAC mỗi lần bấm.";
+      return I18n.T("admin.declined");
     } finally {
       try { Directory.Delete(work, true); } catch (Exception) { }
     }
     File.WriteAllLines(RecordPath, names.ToArray());
     Log.Agent("Đã đăng ký " + names.Count + " lệnh admin trong Task Scheduler \\" + FOLDER);
-    return "Đã đăng ký " + names.Count + " lệnh admin: bấm phím là chạy, không hỏi UAC.";
+    return string.Format(I18n.T("admin.done"), names.Count);
   }
 
   // true: đã chạy qua tác vụ; false: chưa đăng ký hay chạy lỗi (người gọi dùng runas)
@@ -334,11 +355,11 @@ static class AdminTasks {
 // ---------------------------------------------------------------------------------------------------------------
 static class DeckActions {
   public static void Run(DeckAction a) {
-    if (a == null || a.Type == null || a.Type == "none") throw new InvalidOperationException("Phím chưa có lệnh");
+    if (a == null || a.Type == null || a.Type == "none") throw new InvalidOperationException(I18n.T("action.none"));
     switch (a.Type) {
       case "run": RunProgram(a); break;
       case "open":
-        if (string.IsNullOrWhiteSpace(a.Target)) throw new InvalidOperationException("Chưa có địa chỉ để mở");
+        if (string.IsNullOrWhiteSpace(a.Target)) throw new InvalidOperationException(I18n.T("action.no_target"));
         Process.Start(new ProcessStartInfo(a.Target) { UseShellExecute = true });
         break;
       case "hotkey": Input.Hotkey(a.Keys); break;
@@ -358,14 +379,14 @@ static class DeckActions {
         break;
       case "mic": Audio.ToggleMute(true); break;
       case "lock":
-        if (!Input.LockWorkStation()) throw new InvalidOperationException("Không khoá được máy");
+        if (!Input.LockWorkStation()) throw new InvalidOperationException(I18n.T("action.lock_failed"));
         break;
-      default: throw new InvalidOperationException("Không biết lệnh \"" + a.Type + "\"");
+      default: throw new InvalidOperationException(string.Format(I18n.T("action.unknown"), a.Type));
     }
   }
 
   static void RunProgram(DeckAction a) {
-    if (string.IsNullOrWhiteSpace(a.Path)) throw new InvalidOperationException("Chưa chọn chương trình");
+    if (string.IsNullOrWhiteSpace(a.Path)) throw new InvalidOperationException(I18n.T("action.no_program"));
     if (a.Admin && AdminTasks.Run(a)) return;
     var info = new ProcessStartInfo(Environment.ExpandEnvironmentVariables(a.Path)) {
       Arguments = a.Args ?? "", UseShellExecute = true,
@@ -375,8 +396,8 @@ static class DeckActions {
     try {
       Process.Start(info);
     } catch (System.ComponentModel.Win32Exception ex) {
-      if (ex.NativeErrorCode == 1223) throw new InvalidOperationException("Đã từ chối UAC");
-      throw new InvalidOperationException("Không chạy được " + Path.GetFileName(a.Path) + ": " + ex.Message);
+      if (ex.NativeErrorCode == 1223) throw new InvalidOperationException(I18n.T("action.uac_denied"));
+      throw new InvalidOperationException(string.Format(I18n.T("action.cannot_run"), Path.GetFileName(a.Path), ex.Message));
     }
   }
 

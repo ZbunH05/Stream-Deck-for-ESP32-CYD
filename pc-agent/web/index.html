@@ -17,39 +17,41 @@ html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
 button, input, select, textarea { font: inherit; color: inherit; }
 button { background: var(--panel2); border: 1px solid var(--line2); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
 button:hover { border-color: #55565f; }
+button:disabled { opacity: .5; cursor: default; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #06121f; font-weight: 600; }
-button.primary:disabled { opacity: .5; cursor: default; }
 button.ghost { background: transparent; border-color: transparent; color: var(--text2); }
 button.ghost:hover { color: var(--text); background: var(--panel2); }
 button.danger { color: var(--red); }
-input[type=text], input:not([type]), select, textarea { background: var(--bg); border: 1px solid var(--line2);
-  border-radius: 8px; padding: 6px 9px; width: 100%; outline: none; }
+input[type=text], input[type=password], input[type=number], input:not([type]), select, textarea { background: var(--bg);
+  border: 1px solid var(--line2); border-radius: 8px; padding: 6px 9px; width: 100%; outline: none; }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 input[type=color] { width: 36px; height: 30px; padding: 0; border: 1px solid var(--line2); border-radius: 8px; background: none; }
 label.field { display: block; margin: 12px 0 4px; color: var(--text2); font-size: 12.5px; }
 .row { display: flex; gap: 8px; align-items: center; }
-.row > .grow { flex: 1; min-width: 0; }
+.row > .grow, .grow { flex: 1; min-width: 0; }
 .app { display: grid; grid-template-rows: auto 1fr; height: 100%; }
 header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
 header h1 { font-size: 15px; margin: 0; font-weight: 600; }
 .pill { font-size: 12px; padding: 3px 10px; border-radius: 99px; background: var(--panel2); color: var(--text2); white-space: nowrap; }
-.pill.ok { color: var(--green); } .pill.warn { color: var(--orange); }
+.pill.ok { color: var(--green); } .pill.warn { color: var(--orange); } .pill.bad { color: var(--red); }
 .spacer { flex: 1; }
 .dirty { color: var(--orange); font-size: 12.5px; }
-main { display: grid; grid-template-columns: 220px 1fr 380px; min-height: 0; }
+main { display: grid; grid-template-columns: 220px 1fr 420px; min-height: 0; }
 aside, .editor { background: var(--panel); overflow: auto; min-height: 0; }
-aside { border-right: 1px solid var(--line); padding: 14px 12px; }
+aside { border-right: 1px solid var(--line); padding: 14px 12px; display: flex; flex-direction: column; }
 .editor { border-left: 1px solid var(--line); padding: 14px 16px 40px; }
-.section-title { font-size: 12px; text-transform: none; color: var(--muted); margin: 14px 0 6px; letter-spacing: .02em; }
+.section-title { font-size: 12px; color: var(--muted); margin: 14px 0 6px; letter-spacing: .02em; }
 .pages { display: flex; flex-direction: column; gap: 2px; }
-.page { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; cursor: pointer; color: var(--text2); }
-.page:hover { background: var(--panel2); }
-.page.on { background: var(--accent-bg); color: var(--text); }
-.page .ico { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 14px; width: 16px; }
+.page, .nav { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; cursor: pointer; color: var(--text2); }
+.page:hover, .nav:hover { background: var(--panel2); }
+.page.on, .nav.on { background: var(--accent-bg); color: var(--text); }
+.ico { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 14px; width: 16px; }
 .page.child { padding-left: 26px; }
+.navs { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.nav .count { margin-left: auto; font-size: 11.5px; color: var(--muted); }
 .center { overflow: auto; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .device { background: #000; border-radius: 14px; padding: 9px; border: 1px solid var(--line2); zoom: var(--z, 1); }
-@media (max-width: 1100px) { main { grid-template-columns: 190px 1fr 330px; } }
+@media (max-width: 1150px) { main { grid-template-columns: 190px 1fr 380px; } }
 .screen { width: 480px; height: 360px; position: relative; }
 .key { position: absolute; width: 108px; height: 108px; border-radius: 18px; background: #212125; cursor: pointer;
   overflow: hidden; border: 2px solid transparent; transition: transform .12s; }
@@ -61,16 +63,25 @@ aside { border-right: 1px solid var(--line); padding: 14px 12px; }
 .key.drop { transform: scale(.94); border-color: var(--green); }
 .key .back { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-family: "Segoe Fluent Icons"; font-size: 40px; color: #9a9aa2; padding-bottom: 20px; }
+.key .badge { position: absolute; top: 6px; right: 7px; font-size: 10px; padding: 1px 5px; border-radius: 5px;
+  background: rgba(0,0,0,.55); color: #cfd3ff; pointer-events: none; }
 .bar { position: absolute; left: 10px; top: 252px; width: 459px; height: 99px; border-radius: 18px; background: #18181b;
-  display: flex; align-items: center; padding: 0 16px; gap: 14px; color: var(--text2); font-size: 13px; }
+  display: flex; align-items: center; padding: 0 16px; gap: 14px; color: var(--text2); font-size: 13px; overflow: hidden; }
 .bar .clock { font-size: 34px; font-weight: 800; color: var(--text); }
+.bar .mid { min-width: 0; flex: 1; }
+.bar .mid div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .big { color: var(--text); font-weight: 600; }
 .bar .dots { position: absolute; left: 0; right: 0; bottom: 8px; display: flex; justify-content: center; gap: 7px; }
 .bar .dots i { width: 6px; height: 6px; border-radius: 3px; background: #5a5a62; }
 .bar .dots i.on { background: var(--text); }
+.bar .track { position: absolute; left: 112px; right: 112px; bottom: 22px; height: 3px; border-radius: 2px; background: #34343a; }
+.bar .track i { display: block; height: 100%; border-radius: 2px; background: var(--text); }
+.bar .rec { color: var(--red); }
 .hint { color: var(--muted); font-size: 12.5px; text-align: center; max-width: 500px; }
 .seg { display: flex; background: var(--bg); border: 1px solid var(--line2); border-radius: 9px; padding: 2px; gap: 2px; }
 .seg button { flex: 1; border: 0; background: transparent; padding: 5px 6px; border-radius: 7px; color: var(--text2); font-size: 13px; }
 .seg button.on { background: var(--panel2); color: var(--text); box-shadow: 0 0 0 1px var(--line2) inset; }
+.seg.small button { padding: 3px 9px; font-size: 12px; flex: 0 0 auto; }
 .glyphs { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; max-height: 172px; overflow: auto;
   margin-top: 6px; padding: 2px; }
 .glyphs button { font-family: "Segoe Fluent Icons", "Segoe MDL2 Assets"; font-size: 18px; padding: 6px 0; border-radius: 7px; }
@@ -78,7 +89,7 @@ aside { border-right: 1px solid var(--line); padding: 14px 12px; }
 .swatches { display: flex; gap: 5px; flex-wrap: wrap; }
 .swatches button { width: 22px; height: 22px; padding: 0; border-radius: 6px; border: 1px solid var(--line2); }
 .box { border: 1px solid var(--line); border-radius: var(--radius); padding: 2px 12px 12px; margin-top: 12px; background: var(--panel); }
-.box > .head { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.box > .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
 .box > .head b { font-weight: 600; font-size: 13.5px; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .presets button { font-size: 12.5px; padding: 4px 9px; }
@@ -86,42 +97,65 @@ aside { border-right: 1px solid var(--line); padding: 14px 12px; }
 .check input { margin-top: 3px; }
 .note { font-size: 12.5px; color: var(--text2); margin-top: 6px; }
 .note.warn { color: var(--orange); }
+.note.bad { color: var(--red); }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #26272e; border: 1px solid var(--line2);
-  padding: 9px 16px; border-radius: 10px; max-width: 80%; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  padding: 9px 16px; border-radius: 10px; max-width: 80%; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 9; }
 .toast.show { opacity: 1; }
 .empty-editor { color: var(--muted); margin-top: 40px; text-align: center; }
 .mini { font-size: 12px; color: var(--muted); }
+h2 { font-size: 15px; margin: 2px 0 6px; font-weight: 600; }
+.plugin { display: grid; grid-template-columns: 40px 1fr; gap: 10px; padding: 10px; border: 1px solid var(--line);
+  border-radius: var(--radius); margin-top: 10px; background: var(--panel); }
+.plugin img { width: 40px; height: 40px; border-radius: 9px; background: #222; object-fit: cover; }
+.plugin .name { font-weight: 600; }
+.plugin .meta { font-size: 12px; color: var(--muted); }
+.plugin .tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.plugin .tools button { font-size: 12.5px; padding: 3px 9px; }
+.plugin.off { opacity: .6; }
+.tag { font-size: 11px; padding: 1px 6px; border-radius: 5px; background: var(--panel2); color: var(--text2); margin-left: 4px; }
+pre.log { background: #0a0a0c; border: 1px solid var(--line); border-radius: 8px; padding: 8px; font: 11.5px/1.4 Consolas, monospace;
+  white-space: pre-wrap; word-break: break-all; max-height: 260px; overflow: auto; margin: 8px 0 0; color: var(--text2); }
+.pi { margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: #2d2d2d; }
+.pi iframe { width: 100%; border: 0; display: block; height: 120px; background: #2d2d2d; }
+.pi .loading { padding: 10px; color: var(--text2); font-size: 12.5px; }
+.picked { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.picked img { width: 36px; height: 36px; border-radius: 8px; background: #222; }
+.status-line { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 </style>
 </head>
 <body>
 <div class="app">
   <header>
     <h1>CYD Deck</h1>
-    <span id="link" class="pill">Đang tải…</span>
+    <span id="link" class="pill">…</span>
     <span id="sync" class="mini"></span>
     <span class="spacer"></span>
     <span id="dirty" class="dirty"></span>
-    <button class="ghost" id="openFolder" title="Mở thư mục chứa deck.json và ảnh">Thư mục dữ liệu</button>
-    <button class="primary" id="save">Lưu và gửi xuống bo</button>
+    <div class="seg small" id="lang"><button data-lang="vi">VI</button><button data-lang="en">EN</button></div>
+    <button class="ghost" id="openFolder" data-t="btn.folder" data-tip="btn.folder_tip"></button>
+    <button class="primary" id="save" data-t="btn.save"></button>
   </header>
   <main>
     <aside>
-      <label class="field" style="margin-top:0">Tên hồ sơ</label>
+      <label class="field" style="margin-top:0" data-t="profile"></label>
       <input id="profileName" maxlength="40">
-      <div class="section-title">Trang</div>
+      <div class="section-title" data-t="pages"></div>
       <div class="pages" id="pages"></div>
       <div class="row" style="margin-top:8px">
-        <button id="addPage" class="grow">+ Trang</button>
+        <button id="addPage" class="grow" data-t="add_page"></button>
       </div>
       <div id="pageEdit"></div>
+      <div class="navs">
+        <div class="nav" id="navPlugins"><span class="ico">&#xEA86;</span><span data-t="nav.plugins"></span><span class="count" id="pluginCount"></span></div>
+        <div class="nav" id="navObs"><span class="ico">&#xE7C8;</span><span>OBS</span><span class="count" id="obsDot"></span></div>
+      </div>
     </aside>
     <section class="center">
       <div class="device"><div class="screen" id="screen"></div></div>
-      <div class="hint">Bấm vào phím để sửa. Kéo một phím thả lên phím khác để đổi chỗ. Hình xem trước là đúng ảnh sẽ lên bo
-        (đã đổi sang màu 16 bit của màn).</div>
+      <div class="hint" data-t="hint"></div>
       <div class="mini" id="lastPress"></div>
     </section>
-    <section class="editor" id="editor"><div class="empty-editor">Chọn một phím để sửa</div></section>
+    <section class="editor" id="editor"></section>
   </main>
 </div>
 <div class="toast" id="toast"></div>
@@ -133,7 +167,218 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const glyphChar = (code) => String.fromCharCode(parseInt(code || 'E700', 16));
 
-let cfg = null, glyphs = [], page = 0, sel = -1, dirty = false, saving = false;
+// ---------- chữ hai ngôn ngữ ----------
+
+const STR = {
+  'link.ok': ['Bo đã nối ({0})', 'Board connected ({0})'],
+  'link.none': ['Chưa nối bo', 'Board not connected'],
+  'link.lost': ['Mất nối với agent', 'Lost connection to the agent'],
+  'last_press': ['Lần bấm gần nhất: {0}', 'Last press: {0}'],
+  'dirty': ['Chưa lưu', 'Unsaved'],
+  'btn.folder': ['Thư mục dữ liệu', 'Data folder'],
+  'btn.folder_tip': ['Mở thư mục chứa deck.json và ảnh', 'Open the folder with deck.json and images'],
+  'btn.save': ['Lưu và gửi xuống bo', 'Save and send to the board'],
+  'btn.saving': ['Đang lưu…', 'Saving…'],
+  'profile': ['Tên hồ sơ', 'Profile name'],
+  'pages': ['Trang', 'Pages'],
+  'add_page': ['+ Trang', '+ Page'],
+  'nav.plugins': ['Plugin Stream Deck', 'Stream Deck plugins'],
+  'hint': ['Bấm vào phím để sửa. Kéo một phím thả lên phím khác để đổi chỗ. Hình xem trước là đúng ảnh sẽ lên bo (đã đổi sang màu 16 bit của màn).',
+           'Click a key to edit it. Drag a key onto another to swap them. The preview is the exact image the board shows (converted to the screen\'s 16-bit colour).'],
+  'pick_key': ['Chọn một phím để sửa', 'Select a key to edit'],
+  'page.folder': ['Thư mục đang chọn', 'Selected folder'],
+  'page.page': ['Trang đang chọn', 'Selected page'],
+  'page.bar': ['Thanh tin ở dưới', 'Info bar'],
+  'bar.info': ['Giờ, nhạc, CPU/RAM', 'Clock, music, CPU/RAM'],
+  'bar.obs': ['OBS (đang ghi, cảnh)', 'OBS (recording, scene)'],
+  'page.up': ['Đưa lên trước', 'Move up'],
+  'page.down': ['Đưa xuống sau', 'Move down'],
+  'delete': ['Xoá', 'Delete'],
+  'need_page': ['Cần ít nhất một trang', 'At least one page is needed'],
+  'confirm_delete_page': ['Xoá "{0}"{1}?', 'Delete "{0}"{1}?'],
+  'and_folders': [' và {0} thư mục bên trong', ' and {0} folders inside'],
+  'max_pages': ['Tối đa 16 trang (kể cả thư mục)', 'At most 16 pages (folders included)'],
+  'new_page': ['Trang {0}', 'Page {0}'],
+  'back': ['Quay ra', 'Back'],
+  'folder_of': ['Thư mục {0}', 'Folder {0}'],
+  'obs.rec_bar': ['OBS · đang ghi', 'OBS · recording'],
+  'obs.live_bar': ['OBS · đang live', 'OBS · live'],
+  'obs.idle_bar': ['OBS · chờ', 'OBS · idle'],
+  'obs.off_bar': ['OBS chưa nối', 'OBS not connected'],
+  'scene_of': ['Cảnh: {0}', 'Scene: {0}'],
+  'dropped': ['Rớt {0}', 'Dropped {0}'],
+  'key_n': ['Phím {0}', 'Key {0}'],
+  'key.clear': ['Xoá phím', 'Clear key'],
+  'kind': ['Loại phím', 'Key type'],
+  'kind.action': ['Lệnh', 'Action'],
+  'kind.toggle': ['Bật/tắt', 'Toggle'],
+  'kind.folder': ['Thư mục', 'Folder'],
+  'kind.plugin': ['Plugin', 'Plugin'],
+  'kind.empty': ['Trống', 'Empty'],
+  'label': ['Nhãn', 'Label'],
+  'label_ph': ['ngắn, ~10 chữ cái thì vừa phím', 'short, ~10 letters fit a key'],
+  'label_on': ['Nhãn khi bật', 'Label when on'],
+  'label_on_ph': ['ví dụ: Mic tắt', 'e.g. Mic off'],
+  'icon': ['Icon', 'Icon'],
+  'icon_off': ['Icon khi tắt', 'Icon when off'],
+  'icon_on': ['Icon khi bật', 'Icon when on'],
+  'icon.glyph': ['Biểu tượng', 'Symbol'],
+  'icon.app': ['Icon app', 'App icon'],
+  'icon.image': ['Ảnh', 'Image'],
+  'icon.none': ['Không', 'None'],
+  'glyph_search': ['Tìm: mic, loa, khoá, terminal…', 'Search: mic, volume, lock, terminal…'],
+  'choose': ['Chọn…', 'Browse…'],
+  'app_note': ['Lấy icon của file .exe, .lnk hay thư mục, như Explorer.', 'Uses the icon of an .exe, .lnk or folder, like Explorer.'],
+  'upload': ['Tải ảnh lên…', 'Upload image…'],
+  'change_image': ['Đổi ảnh…', 'Change image…'],
+  'image_note': ['Ảnh phủ kín phím, như Elgato', 'The image fills the key, like Elgato'],
+  'bg': ['Nền', 'Background'],
+  'icon_color': ['Màu biểu tượng', 'Symbol colour'],
+  'on_tap': ['Lệnh khi chạm', 'On tap'],
+  'on_hold': ['Lệnh khi giữ 0,5 giây', 'On hold (0.5 s)'],
+  'on_hold_note': ['không có: chạy lệnh khi chạm', 'none: runs the tap action'],
+  'act.none': ['Không làm gì', 'Do nothing'],
+  'act.run': ['Chạy chương trình', 'Run a program'],
+  'act.open': ['Mở web, file, thư mục', 'Open a website, file or folder'],
+  'act.hotkey': ['Phím tắt', 'Keyboard shortcut'],
+  'act.text': ['Gõ một đoạn chữ', 'Type text'],
+  'act.media': ['Nhạc (phát, bài sau…)', 'Media (play, next…)'],
+  'act.volume': ['Âm lượng loa', 'Speaker volume'],
+  'act.mic': ['Tắt/bật mic', 'Mute the microphone'],
+  'act.lock': ['Khoá máy', 'Lock the PC'],
+  'act.obs': ['OBS Studio', 'OBS Studio'],
+  'program': ['Chương trình', 'Program'],
+  'program_ph': ['C:\\...\\chuong-trinh.exe', 'C:\\...\\program.exe'],
+  'args': ['Tham số', 'Arguments'],
+  'args_ph': ['ví dụ: -NoExit -Command "cd D:\\du-an"', 'e.g. -NoExit -Command "cd D:\\project"'],
+  'workdir': ['Thư mục làm việc', 'Working folder'],
+  'workdir_ph': ['để trống: mặc định', 'empty: default'],
+  'admin': ['Chạy bằng quyền admin', 'Run as administrator'],
+  'admin_note': ['Khi lưu, Windows hỏi UAC một lần để đăng ký lệnh này vào Task Scheduler (thư mục CydDeck). Sau đó bấm phím là chạy quyền admin ngay, không hỏi nữa: ai chạm vào bảng cũng mở được.',
+                 'When you save, Windows asks for UAC once to register this action in Task Scheduler (CydDeck folder). After that the key runs as administrator without asking again: anyone who touches the panel can open it.'],
+  'address': ['Địa chỉ', 'Address'],
+  'address_ph': ['https://… , D:\\thu-muc , ms-settings:sound', 'https://… , D:\\folder , ms-settings:sound'],
+  'hotkey': ['Tổ hợp phím', 'Key combination'],
+  'hotkey_ph': ['Bấm tổ hợp phím vào đây', 'Press the keys here'],
+  'hotkey_note': ['Phím Win thì gõ tay, ví dụ Win+Shift+S (trình duyệt không bắt được phím Win).', 'Type the Win key by hand, e.g. Win+Shift+S (the browser cannot capture it).'],
+  'text': ['Đoạn chữ', 'Text'],
+  'what': ['Việc', 'Command'],
+  'media.playpause': ['Phát/dừng', 'Play/pause'],
+  'media.next': ['Bài sau', 'Next'],
+  'media.prev': ['Bài trước', 'Previous'],
+  'media.stop': ['Dừng', 'Stop'],
+  'vol.up': ['To lên', 'Louder'],
+  'vol.down': ['Nhỏ lại', 'Quieter'],
+  'vol.mute': ['Tắt tiếng', 'Mute'],
+  'toggle_note': ['Phím bật/tắt biết trạng thái thật với: mic, tắt tiếng loa, phát/dừng nhạc, và OBS (cảnh, ghi hình, tạm dừng ghi, live, virtual cam, tắt tiếng nguồn).',
+                  'A toggle key follows the real state for: microphone, speaker mute, media play/pause and OBS (scene, recording, pause, live, virtual cam, source mute).'],
+  'test': ['Thử lệnh ngay', 'Try it now'],
+  'open_folder': ['Mở thư mục', 'Opens folder'],
+  'new_folder': ['+ Tạo thư mục mới', '+ New folder'],
+  'folder_default': ['Thư mục', 'Folder'],
+  'edit_folder': ['Sửa phím trong thư mục', 'Edit the keys in this folder'],
+  'live': ['Nhãn hiện số', 'Live label'],
+  'live.none': ['Không', 'None'],
+  'live.volume': ['Âm lượng loa (ví dụ 62%)', 'Speaker volume (e.g. 62%)'],
+  'live.obsvolume': ['Âm lượng nguồn OBS của lệnh này', 'Volume of this action\'s OBS source'],
+  'obs.cmd.scene': ['Đổi cảnh', 'Switch scene'],
+  'obs.cmd.record': ['Ghi hình', 'Record'],
+  'obs.cmd.record_pause': ['Tạm dừng ghi', 'Pause recording'],
+  'obs.cmd.stream': ['Live', 'Stream'],
+  'obs.cmd.vcam': ['Virtual Cam', 'Virtual camera'],
+  'obs.cmd.replay': ['Lưu Replay Buffer', 'Save the replay buffer'],
+  'obs.cmd.mute': ['Tắt tiếng một nguồn', 'Mute a source'],
+  'obs.cmd.vol_up': ['Tăng âm lượng nguồn 5%', 'Source volume +5%'],
+  'obs.cmd.vol_down': ['Giảm âm lượng nguồn 5%', 'Source volume −5%'],
+  'obs.scene': ['Cảnh', 'Scene'],
+  'obs.input': ['Nguồn âm thanh', 'Audio source'],
+  'obs.type_name': ['gõ tên (OBS chưa nối)', 'type the name (OBS not connected)'],
+  'obs.not_connected_note': ['OBS chưa nối: danh sách cảnh và nguồn hiện khi agent nối được OBS (mục OBS ở góc trái dưới).',
+                             'OBS is not connected: scenes and sources appear once the agent reaches OBS (OBS, bottom left).'],
+  'plugin.action': ['Hành động', 'Action'],
+  'plugin.none_installed': ['Chưa cài plugin nào.', 'No plugins installed yet.'],
+  'plugin.install': ['Cài plugin…', 'Install plugin…'],
+  'plugin.no_pi': ['Hành động này không có trang cài đặt riêng.', 'This action has no settings page.'],
+  'plugin.missing': ['Không thấy plugin của phím này (đã gỡ hay đã tắt?)', 'The plugin for this key is missing (removed or disabled?)'],
+  'plugin.pi_loading': ['Đang mở trang cài đặt của plugin…', 'Opening the plugin\'s settings page…'],
+  'plugin.title_note': ['Plugin có thể tự đổi nhãn và ảnh khi chạy (đồng hồ, CPU…).', 'The plugin may change the label and image while running (clock, CPU…).'],
+  'plugin.settings': ['Cài đặt của plugin', 'Plugin settings'],
+  'plugins.intro': ['Chạy plugin của Elgato Stream Deck (thư mục .sdPlugin): plugin .exe, Node.js và HTML. Plugin thấy bo như một Stream Deck Neo (8 phím). Plugin chỉ chạy khi có phím dùng nó.',
+                    'Runs Elgato Stream Deck plugins (.sdPlugin folders): .exe, Node.js and HTML plugins. Plugins see the board as a Stream Deck Neo (8 keys). A plugin only runs while a key uses it.'],
+  'plugins.warn': ['Cài plugin là chạy mã của người khác trên máy bạn, với quyền của bạn. Chỉ cài từ nguồn tin cậy.',
+                   'Installing a plugin runs someone else\'s code on your PC with your rights. Only install from sources you trust.'],
+  'plugins.limits': ['Không hỗ trợ: núm xoay và màn cảm ứng của Stream Deck +, plugin trả phí hay khoá với Elgato Marketplace, multi-action, switchToProfile.',
+                     'Not supported: Stream Deck + dials and touch strip, paid or Marketplace-locked plugins, multi-actions, switchToProfile.'],
+  'plugins.get': ['Tải plugin: file .streamDeckPlugin từ trang GitHub Releases của plugin, hay chọn manifest.json trong một thư mục .sdPlugin.',
+                  'Get plugins as .streamDeckPlugin files from a plugin\'s GitHub Releases page, or pick manifest.json inside an .sdPlugin folder.'],
+  'plugins.enable': ['Bật', 'Enable'],
+  'plugins.disable': ['Tắt', 'Disable'],
+  'plugins.restart': ['Chạy lại', 'Restart'],
+  'plugins.log': ['Log', 'Log'],
+  'plugins.hide_log': ['Ẩn log', 'Hide log'],
+  'plugins.remove': ['Gỡ', 'Remove'],
+  'plugins.confirm_remove': ['Gỡ plugin "{0}"? Phím dùng plugin này sẽ không chạy nữa.', 'Remove plugin "{0}"? Keys using it will stop working.'],
+  'plugins.actions': ['{0} hành động', '{0} actions'],
+  'plugins.off': ['đã tắt', 'disabled'],
+  'plugins.used': ['{0} phím đang dùng', 'used by {0} keys'],
+  'plugins.rt.exe': ['chương trình', 'program'],
+  'plugins.rt.node': ['Node.js', 'Node.js'],
+  'plugins.rt.html': ['HTML', 'HTML'],
+  'plugins.log_empty': ['(log trống)', '(empty log)'],
+  'obs.intro': ['Agent nối OBS qua obs-websocket (có sẵn trong OBS 28 trở lên) khi bộ phím có phím OBS hay trang có thanh OBS.',
+                'The agent connects to OBS through obs-websocket (built into OBS 28 and later) when the layout has an OBS key or a page with the OBS bar.'],
+  'obs.howto': ['Trong OBS: Tools → WebSocket Server Settings → bật Enable WebSocket server. Sau đó bấm "Lấy mật khẩu từ OBS trên máy này".',
+                'In OBS: Tools → WebSocket Server Settings → turn on Enable WebSocket server. Then press "Take the password from OBS on this PC".'],
+  'obs.enabled': ['Cho phép agent nối OBS', 'Let the agent connect to OBS'],
+  'obs.host': ['Địa chỉ', 'Address'],
+  'obs.port': ['Cổng', 'Port'],
+  'obs.password': ['Mật khẩu', 'Password'],
+  'obs.password_saved': ['đã lưu (để trống: giữ nguyên)', 'saved (leave empty to keep it)'],
+  'obs.password_none': ['chưa có', 'none'],
+  'obs.save': ['Lưu cài đặt OBS', 'Save OBS settings'],
+  'obs.local': ['Lấy mật khẩu từ OBS trên máy này', 'Take the password from OBS on this PC'],
+  'obs.state.on': ['Đã nối OBS', 'Connected to OBS'],
+  'obs.state.idle': ['Chưa cần nối: bộ phím chưa có phím OBS', 'Not needed: the layout has no OBS key'],
+  'obs.state.off': ['Chưa nối OBS', 'OBS not connected'],
+  'obs.state.disabled': ['Đã tắt', 'Disabled'],
+  'obs.scenes': ['Cảnh: {0}', 'Scenes: {0}'],
+  'obs.make_folder': ['Tạo thư mục OBS từ cảnh hiện có', 'Create an OBS folder from the scenes'],
+  'obs.make_folder_note': ['Thêm phím thư mục "OBS" vào trang đang chọn: các cảnh, Ghi hình, Live, tắt tiếng mic và âm lượng nhạc nền. Chưa lưu cho tới khi bấm Lưu.',
+                           'Adds an "OBS" folder key to the selected page: scenes, Record, Live, mic mute and music volume. Nothing is saved until you press Save.'],
+  'obs.no_slot': ['Trang đang chọn hết chỗ trống', 'The selected page has no empty key'],
+  'obs.need_scenes': ['Cần nối OBS trước để đọc danh sách cảnh', 'Connect to OBS first to read the scene list'],
+  'obs.folder_added': ['Đã thêm thư mục OBS: bấm Lưu để gửi xuống bo', 'OBS folder added: press Save to send it to the board'],
+  'obs.k.record': ['Ghi hình', 'Record'],
+  'obs.k.recording': ['Đang ghi', 'Recording'],
+  'obs.k.live': ['Live', 'Go live'],
+  'obs.k.onair': ['Đang live', 'On air'],
+  'obs.k.mic': ['Mic', 'Mic'],
+  'obs.k.mic_off': ['Mic tắt', 'Mic off'],
+  'obs.k.music': ['Nhạc nền', 'Music'],
+  'cannot_save': ['Không lưu được: {0}', 'Could not save: {0}'],
+  'agent_odd': ['Agent trả lời lạ ({0})', 'Unexpected answer from the agent ({0})'],
+  'error_n': ['Lỗi {0}', 'Error {0}'],
+  'load_failed': ['Không đọc được dữ liệu từ CydAgent: {0}. Mở lại cửa sổ này từ menu "Cài đặt Deck…" ở icon CydAgent trên khay.',
+                  'Could not read data from CydAgent: {0}. Reopen this window from "Deck settings…" in the CydAgent tray menu.'],
+};
+let LANG = 'vi';
+function t(key, ...args) {
+  const pair = STR[key];
+  let s = pair ? pair[LANG === 'vi' ? 0 : 1] : key;
+  args.forEach((a, i) => { s = s.split('{' + i + '}').join(String(a)); });
+  return s;
+}
+function applyStatic() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
+  document.querySelectorAll('[data-tip]').forEach((el) => { el.title = t(el.dataset.tip); });
+  document.querySelectorAll('#lang button').forEach((b) => b.classList.toggle('on', b.dataset.lang === LANG));
+  if (!saving) $('save').textContent = t('btn.save');
+  $('dirty').textContent = dirty ? t('dirty') : '';
+}
+
+let cfg = null, glyphs = [], plugins = [], status = null, page = 0, sel = -1, dirty = false, saving = false;
+let view = 'key';  // 'key', 'plugins', 'obs'
 const previews = new Map();  // khoá ảnh → data URL
 
 async function api(path, body, method) {
@@ -142,30 +387,40 @@ async function api(path, body, method) {
     headers: {'X-Deck-Token': TOKEN, 'Content-Type': 'application/json'},
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await res.json().catch(() => ({ok: false, message: 'Agent trả lời lạ (' + res.status + ')'}));
-  if (!res.ok) throw new Error(data.message || ('Lỗi ' + res.status));
+  const data = await res.json().catch(() => ({ok: false, message: t('agent_odd', res.status)}));
+  if (!res.ok) throw new Error(data.message || t('error_n', res.status));
   return data;
 }
 
 function toast(text) {
-  const t = $('toast');
-  t.textContent = text;
-  t.classList.add('show');
+  if (!text) return;
+  const el = $('toast');
+  el.textContent = text;
+  el.classList.add('show');
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => t.classList.remove('show'), 4200);
+  toast.timer = setTimeout(() => el.classList.remove('show'), 4200);
 }
 
 function markDirty() {
   dirty = true;
-  $('dirty').textContent = 'Chưa lưu';
+  $('dirty').textContent = t('dirty');
 }
+
+function el(tag, props, children) {
+  const e = document.createElement(tag);
+  Object.assign(e, props || {});
+  (children || []).forEach((c) => e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c));
+  return e;
+}
+const note = (text, cls) => el('div', {className: 'note' + (cls ? ' ' + cls : ''), textContent: text});
 
 // ---------- dữ liệu ----------
 
 const blankAction = () => ({Type: 'none', Path: '', Args: '', Dir: '', Admin: false, Target: '', Keys: '', Text: '', Cmd: ''});
 const blankIcon = () => ({Type: 'none', Glyph: 'E700', Path: '', Bg: '#2B2C33', Fg: '#FFFFFF'});
 const blankKey = () => ({Kind: 'empty', Title: '', TitleOn: '', Icon: blankIcon(), IconOn: null, Action: blankAction(),
-                         Hold: blankAction(), Target: 0, Live: ''});
+                         Hold: blankAction(), Target: 0, Live: '', ActionUuid: '', Settings: '', Context: '', State: 0});
+const newContext = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/-/g, '');
 
 function fix(key) {
   key.Icon = Object.assign(blankIcon(), key.Icon || {});
@@ -175,55 +430,95 @@ function fix(key) {
   return key;
 }
 
+function findAction(uuid) {
+  for (const p of plugins) {
+    const a = p.actions.find((x) => x.uuid === uuid);
+    if (a) return {plugin: p, action: a};
+  }
+  return null;
+}
+
 async function load() {
   const s = await api('/api/state');
   cfg = s.config;
   cfg.Pages.forEach((p) => p.Keys.forEach(fix));
   glyphs = s.glyphs || [];
-  showStatus(s);
-  // #p=2&k=1: mở sẵn trang 3, phím 2 (liên kết thẳng tới một phím, ảnh chụp cho README)
+  plugins = s.plugins || [];
+  // #p=2&k=1: mở sẵn trang 3, phím 2; #view=plugins|obs; #lang=vi|en chỉ đổi chữ của trang này, không lưu
+  // (liên kết thẳng, ảnh chụp cho README)
   const hash = new URLSearchParams(location.hash.slice(1));
+  LANG = ['vi', 'en'].includes(hash.get('lang')) ? hash.get('lang') : cfg.Lang === 'en' ? 'en' : 'vi';
+  applyStatic();
+  showStatus(s.status);
   const p = parseInt(hash.get('p'), 10), k = parseInt(hash.get('k'), 10);
   if (p >= 0 && p < cfg.Pages.length) page = p;
   if (k >= 0 && k < 8) sel = k;
+  if (hash.get('view') === 'plugins' || hash.get('view') === 'obs') view = hash.get('view');
   renderAll();
   if (hash.get('scroll') === 'action') {
     const ed = $('editor');
-    const box = [...ed.querySelectorAll('.box')].find((b) => b.textContent.includes('Lệnh khi chạm'));
+    const box = ed.querySelector('.box.action');
     if (box) ed.scrollTop = box.offsetTop - 140;
   }
 }
 
 function showStatus(s) {
+  if (!s) return;
+  status = s;
   const link = $('link');
-  link.textContent = s.connected ? 'Bo đã nối (' + s.port + ')' : (s.linkStatus || 'Chưa nối bo');
+  link.textContent = s.connected ? t('link.ok', s.port) : (s.linkStatus || t('link.none'));
   link.className = 'pill ' + (s.connected ? 'ok' : 'warn');
   $('sync').textContent = s.connected ? s.status : '';
-  $('lastPress').textContent = s.lastPress ? 'Lần bấm gần nhất: ' + s.lastPress : '';
+  $('lastPress').textContent = s.lastPress ? t('last_press', s.lastPress) : '';
+  $('pluginCount').textContent = plugins.length ? String(plugins.length) : '';
+  $('obsDot').innerHTML = s.obs && s.obs.connected ? '<span style="color:var(--green)">●</span>' : '';
+  renderBar();
+  if (view === 'obs') obsStatusLine();
+  // OBS vừa nối hay vừa ngắt khi đang sửa phím OBS: dựng lại bảng sửa để có ô chọn cảnh, nguồn thật
+  const obsOn = !!(s.obs && s.obs.connected);
+  if (obsOn !== showStatus.obsOn) {
+    const first = showStatus.obsOn === undefined;
+    showStatus.obsOn = obsOn;
+    if (!first && wantsObs() && view === 'key' && !document.activeElement.closest('#editor')) renderEditor();
+  }
 }
 
-setInterval(async () => {
-  try { showStatus(await api('/api/state')); } catch (e) { $('link').textContent = 'Mất nối với agent'; }
-}, 2000);
+// Trang cài đặt cần OBS (mục OBS, hay phím đang sửa có lệnh OBS): agent nối OBS dù bộ phím chưa có phím OBS
+function wantsObs() {
+  if (view === 'obs') return true;
+  const key = cfg && sel >= 0 && view === 'key' ? cfg.Pages[page].Keys[sel] : null;
+  return !!key && ((key.Action && key.Action.Type === 'obs') || (key.Hold && key.Hold.Type === 'obs'));
+}
+
+async function pollStatus() {
+  try {
+    showStatus(await api(wantsObs() ? '/api/obs/wake' : '/api/status'));
+  } catch (e) {
+    $('link').textContent = t('link.lost');
+    $('link').className = 'pill bad';
+  }
+}
+setInterval(pollStatus, 2000);
 
 // ---------- xem trước ----------
 
-function imageKey(icon, title, folder) {
-  return JSON.stringify([icon, !!title, !!folder]);
+async function cached(k, fetcher) {
+  if (previews.has(k)) return previews.get(k);
+  let png = '';
+  try { png = (await fetcher()).png || ''; } catch (e) { png = ''; }
+  previews.set(k, png);
+  return png;
 }
 
-async function preview(icon, title, folder) {
-  if (!icon || icon.Type === 'none') return '';
-  const k = imageKey(icon, title, folder);
-  if (previews.has(k)) return previews.get(k);
-  try {
-    const r = await api('/api/render', {Icon: icon, Title: !!title, Folder: !!folder});
-    previews.set(k, r.png);
-    return r.png;
-  } catch (e) {
-    previews.set(k, '');
-    return '';
-  }
+function preview(icon, title, folder) {
+  if (!icon || icon.Type === 'none') return Promise.resolve('');
+  return cached(JSON.stringify([icon, !!title, !!folder]), () => api('/api/render', {Icon: icon, Title: !!title, Folder: !!folder}));
+}
+
+function pluginPreview(key) {
+  if (!key.ActionUuid) return Promise.resolve('');
+  return cached(JSON.stringify(['plugin', key.ActionUuid, key.State || 0, !!key.Title]),
+                () => api('/api/plugin-art', {Key: {ActionUuid: key.ActionUuid, Title: key.Title, Kind: 'plugin'}, State: key.State || 0}));
 }
 
 // ---------- trang ----------
@@ -235,28 +530,30 @@ function renderPages() {
   list.innerHTML = '';
   const add = (i, depth) => {
     const p = cfg.Pages[i];
-    const el = document.createElement('div');
-    el.className = 'page' + (i === page ? ' on' : '') + (depth ? ' child' : '');
-    el.innerHTML = '<span class="ico">' + (p.Parent >= 0 ? '&#xE8B7;' : '&#xE80A;') + '</span><span>' + esc(p.Name) + '</span>';
-    el.onclick = () => { page = i; sel = -1; renderAll(); };
-    list.appendChild(el);
+    const item = document.createElement('div');
+    item.className = 'page' + (i === page && view === 'key' ? ' on' : '') + (depth ? ' child' : '');
+    item.innerHTML = '<span class="ico">' + (p.Parent >= 0 ? '&#xE8B7;' : '&#xE80A;') + '</span><span>' + esc(p.Name) + '</span>';
+    item.onclick = () => { page = i; sel = -1; view = 'key'; renderAll(); };
+    list.appendChild(item);
     cfg.Pages.forEach((c, j) => { if (c.Parent === i) add(j, depth + 1); });
   };
   topPages().forEach((i) => add(i, 0));
+  $('navPlugins').classList.toggle('on', view === 'plugins');
+  $('navObs').classList.toggle('on', view === 'obs');
 
   const p = cfg.Pages[page];
   const folder = p.Parent >= 0;
   $('pageEdit').innerHTML =
-    '<div class="section-title">' + (folder ? 'Thư mục đang chọn' : 'Trang đang chọn') + '</div>' +
+    '<div class="section-title">' + t(folder ? 'page.folder' : 'page.page') + '</div>' +
     '<input id="pageName" maxlength="23" value="' + esc(p.Name) + '">' +
-    '<label class="field">Thanh tin ở dưới</label>' +
-    '<select id="pageBar"><option value="info">Giờ, nhạc, CPU/RAM</option><option value="obs">OBS (đang ghi, cảnh)</option></select>' +
+    '<label class="field">' + t('page.bar') + '</label>' +
+    '<select id="pageBar"><option value="info">' + esc(t('bar.info')) + '</option><option value="obs">' + esc(t('bar.obs')) + '</option></select>' +
     '<div class="row" style="margin-top:10px">' +
-    (folder ? '' : '<button id="pageUp" title="Đưa lên trước">↑</button><button id="pageDown" title="Đưa xuống sau">↓</button>') +
-    '<span class="spacer"></span><button class="danger" id="pageDel">Xoá</button></div>';
-  $('pageName').oninput = (e) => { p.Name = e.target.value; markDirty(); renderPagesSoon(); };
+    (folder ? '' : '<button id="pageUp" title="' + esc(t('page.up')) + '">↑</button><button id="pageDown" title="' + esc(t('page.down')) + '">↓</button>') +
+    '<span class="spacer"></span><button class="danger" id="pageDel">' + t('delete') + '</button></div>';
+  $('pageName').oninput = (e) => { p.Name = e.target.value; markDirty(); renderPagesSoon(); renderBar(); };
   $('pageBar').value = p.Bar || 'info';
-  $('pageBar').onchange = (e) => { p.Bar = e.target.value; markDirty(); };
+  $('pageBar').onchange = (e) => { p.Bar = e.target.value; markDirty(); renderBar(); };
   $('pageDel').onclick = () => deletePage(page);
   if (!folder) {
     $('pageUp').onclick = () => movePage(page, -1);
@@ -287,14 +584,14 @@ function movePage(i, step) {
 }
 
 function deletePage(i) {
-  if (topPages().length <= 1 && cfg.Pages[i].Parent < 0) { toast('Cần ít nhất một trang'); return; }
+  if (topPages().length <= 1 && cfg.Pages[i].Parent < 0) { toast(t('need_page')); return; }
   const doomed = new Set([i]);
   let grew = true;
   while (grew) {  // xoá cả thư mục con
     grew = false;
     cfg.Pages.forEach((p, j) => { if (!doomed.has(j) && doomed.has(p.Parent)) { doomed.add(j); grew = true; } });
   }
-  if (!confirm('Xoá "' + cfg.Pages[i].Name + '"' + (doomed.size > 1 ? ' và ' + (doomed.size - 1) + ' thư mục bên trong' : '') + '?')) return;
+  if (!confirm(t('confirm_delete_page', cfg.Pages[i].Name, doomed.size > 1 ? t('and_folders', doomed.size - 1) : ''))) return;
   const keep = cfg.Pages.map((p, j) => j).filter((j) => !doomed.has(j));
   const map = new Map(keep.map((old, now) => [old, now]));
   cfg.Pages = keep.map((j) => cfg.Pages[j]);
@@ -314,15 +611,24 @@ function deletePage(i) {
 }
 
 $('addPage').onclick = () => {
-  if (cfg.Pages.length >= 16) { toast('Tối đa 16 trang (kể cả thư mục)'); return; }
-  cfg.Pages.push({Name: 'Trang ' + (topPages().length + 1), Parent: -1, Bar: 'info', Keys: Array.from({length: 8}, blankKey)});
+  if (cfg.Pages.length >= 16) { toast(t('max_pages')); return; }
+  cfg.Pages.push({Name: t('new_page', topPages().length + 1), Parent: -1, Bar: 'info', Keys: Array.from({length: 8}, blankKey)});
   page = cfg.Pages.length - 1;
   sel = -1;
+  view = 'key';
   markDirty();
   renderAll();
 };
+$('navPlugins').onclick = () => { view = 'plugins'; sel = -1; renderAll(); };
+$('navObs').onclick = () => { view = 'obs'; sel = -1; renderAll(); pollStatus(); };
 
 // ---------- màn hình xem trước ----------
+
+function liveText(k) {
+  if (k.Live === 'volume') return '62%';
+  if (k.Live === 'obsvolume') return '35%';
+  return k.Title;
+}
 
 async function renderScreen() {
   const screen = $('screen');
@@ -330,27 +636,29 @@ async function renderScreen() {
   const token = (renderScreen.token = (renderScreen.token || 0) + 1);
   const keys = await Promise.all(p.Keys.map(async (k) => {
     if (k.Kind === 'empty' || k.Kind === 'back') return '';
+    if (k.Kind === 'plugin') return pluginPreview(k);
     return preview(k.Icon, k.Title, k.Kind === 'folder');
   }));
   if (token !== renderScreen.token) return;
   screen.innerHTML = '';
   p.Keys.forEach((k, slot) => {
-    const el = document.createElement('div');
-    el.className = 'key' + (k.Kind === 'empty' ? ' empty' : '') + (slot === sel ? ' sel' : '');
-    el.style.left = (10 + (slot % 4) * 117) + 'px';
-    el.style.top = (9 + Math.floor(slot / 4) * 117) + 'px';
+    const item = document.createElement('div');
+    item.className = 'key' + (k.Kind === 'empty' ? ' empty' : '') + (slot === sel ? ' sel' : '');
+    item.style.left = (10 + (slot % 4) * 117) + 'px';
+    item.style.top = (9 + Math.floor(slot / 4) * 117) + 'px';
     if (k.Kind === 'back') {
-      el.innerHTML = '<div class="back">&#xE76B;</div><div class="t" style="color:#9a9aa2">' + esc(k.Title || 'Quay ra') + '</div>';
+      item.innerHTML = '<div class="back">&#xE76B;</div><div class="t" style="color:#9a9aa2">' + esc(k.Title || t('back')) + '</div>';
     } else if (k.Kind !== 'empty') {
-      el.innerHTML = (keys[slot] ? '<img alt="" src="' + keys[slot] + '">' : '') +
-                     '<div class="t">' + esc(k.Live === 'volume' ? '62%' : k.Title) + '</div>';
+      item.innerHTML = (keys[slot] ? '<img alt="" src="' + keys[slot] + '">' : '') +
+                       '<div class="t">' + esc(liveText(k)) + '</div>' +
+                       (k.Kind === 'plugin' ? '<span class="badge">SD</span>' : '');
     }
-    el.onclick = () => { sel = slot; renderScreen(); renderEditor(); };
-    el.draggable = true;
-    el.ondragstart = (e) => { e.dataTransfer.setData('text/plain', String(slot)); };
-    el.ondragover = (e) => { e.preventDefault(); el.classList.add('drop'); };
-    el.ondragleave = () => el.classList.remove('drop');
-    el.ondrop = (e) => {
+    item.onclick = () => { sel = slot; view = 'key'; renderPages(); renderScreen(); renderEditor(); };
+    item.draggable = true;
+    item.ondragstart = (e) => { e.dataTransfer.setData('text/plain', String(slot)); };
+    item.ondragover = (e) => { e.preventDefault(); item.classList.add('drop'); };
+    item.ondragleave = () => item.classList.remove('drop');
+    item.ondrop = (e) => {
       e.preventDefault();
       const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
       if (isNaN(from) || from === slot) return;
@@ -360,30 +668,55 @@ async function renderScreen() {
       renderScreen();
       renderEditor();
     };
-    screen.appendChild(el);
+    screen.appendChild(item);
   });
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  bar.id = 'bar';
+  screen.appendChild(bar);
+  renderBar();
+}
+
+// Thanh tin giống trên bo: nhạc đang phát (thật, từ agent) hay tên hồ sơ/trang; trang OBS: trạng thái OBS
+function renderBar() {
+  const bar = $('bar');
+  if (!bar || !cfg) return;
+  const p = cfg.Pages[page];
   const folder = p.Parent >= 0;
   const tops = topPages();
   const dots = folder || tops.length < 2 ? '' :
       '<div class="dots">' + tops.map((i) => '<i class="' + (i === page ? 'on' : '') + '"></i>').join('') + '</div>';
-  const bar = document.createElement('div');
-  bar.className = 'bar';
-  bar.innerHTML = p.Bar === 'obs'
-      ? '<span class="clock">12:04</span><div><div style="color:var(--text);font-weight:600">OBS · đang ghi</div><div>Cảnh: …</div></div><span class="spacer"></span><div style="text-align:right">Rớt 0<br>CPU 23%</div>'
-      : '<span class="clock">' + new Date().toTimeString().slice(0, 5) + '</span><div><div style="color:var(--text);font-weight:600">' +
-        esc(cfg.Name) + '</div><div>' + esc(folder ? 'Thư mục ' + p.Name : p.Name) + '</div></div><span class="spacer"></span>' +
-        '<div style="text-align:right">CPU <span style="color:var(--green)">23%</span><br>RAM <span style="color:var(--accent)">41%</span></div>' + dots;
-  screen.appendChild(bar);
+  const clock = new Date().toTimeString().slice(0, 5);
+  if (p.Bar === 'obs') {
+    const obs = status && status.obs;
+    const on = obs && obs.connected;
+    bar.innerHTML = '<span class="clock">' + clock + '</span><div class="mid"><div class="big">' +
+        esc(on ? t('obs.idle_bar') : t('obs.off_bar')) + '</div><div>' + esc(on && obs.scenes.length ? t('scene_of', obs.scenes[0]) : '') +
+        '</div></div><div style="text-align:right">' + esc(t('dropped', 0)) + '<br>CPU 4%</div>';
+    return;
+  }
+  const media = status && status.media;
+  let mid;
+  let track = '';
+  if (media && media.title) {
+    const sub = [media.artist, media.app].filter(Boolean).join(' · ');
+    mid = '<div class="big">' + (media.playing ? '▶ ' : '❚❚ ') + esc(media.title) + '</div><div>' + esc(sub) + '</div>';
+    if (media.permille >= 0) track = '<div class="track"><i style="width:' + (media.permille / 10).toFixed(1) + '%"></i></div>';
+  } else {
+    mid = '<div class="big">' + esc(cfg.Name) + '</div><div>' + esc(folder ? t('folder_of', p.Name) : p.Name) + '</div>';
+  }
+  bar.innerHTML = '<span class="clock">' + clock + '</span><div class="mid">' + mid + '</div>' +
+      '<div style="text-align:right">CPU <span style="color:var(--green)">23%</span><br>RAM <span style="color:var(--accent)">41%</span></div>' +
+      (track || dots);
 }
 
 // ---------- bảng sửa phím ----------
 
-const KINDS = [['action', 'Lệnh'], ['toggle', 'Bật/tắt'], ['folder', 'Thư mục'], ['empty', 'Trống']];
-const ACTIONS = [
-  ['none', 'Không làm gì'], ['run', 'Chạy chương trình'], ['open', 'Mở web, file, thư mục'], ['hotkey', 'Phím tắt'],
-  ['text', 'Gõ một đoạn chữ'], ['media', 'Nhạc (phát, bài sau…)'], ['volume', 'Âm lượng loa'], ['mic', 'Tắt/bật mic'],
-  ['lock', 'Khoá máy'],
-];
+const KINDS = () => [['action', t('kind.action')], ['toggle', t('kind.toggle')], ['folder', t('kind.folder')],
+                     ['plugin', t('kind.plugin')], ['empty', t('kind.empty')]];
+const ACTIONS = ['none', 'run', 'open', 'hotkey', 'text', 'media', 'volume', 'mic', 'lock', 'obs'];
+const OBS_CMDS = ['scene', 'record', 'record_pause', 'stream', 'vcam', 'replay', 'mute', 'vol_up', 'vol_down'];
+const OBS_STATEFUL = ['scene', 'record', 'record_pause', 'stream', 'vcam', 'mute'];
 const SWATCHES = ['#2B2C33', '#1B1C22', '#012456', '#7A1212', '#B3261E', '#2E7D4F', '#1A9E4B', '#0E6E8C', '#3B4BC8', '#4A3A8C', '#8A4B00', '#C2185B'];
 const PS = '%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const CMD = '%SystemRoot%\\System32\\cmd.exe';
@@ -394,34 +727,36 @@ const PRESETS = [
 ];
 
 function seg(options, value, onPick) {
-  const wrap = document.createElement('div');
-  wrap.className = 'seg';
+  const wrap = el('div', {className: 'seg'});
   options.forEach(([v, label]) => {
-    const b = document.createElement('button');
-    b.textContent = label;
-    b.className = v === value ? 'on' : '';
+    const b = el('button', {textContent: label, className: v === value ? 'on' : ''});
     b.onclick = () => onPick(v);
     wrap.appendChild(b);
   });
   return wrap;
 }
 
-function field(label, el) {
+function field(label, control) {
   const frag = document.createDocumentFragment();
-  const l = document.createElement('label');
-  l.className = 'field';
-  l.textContent = label;
-  frag.appendChild(l);
-  frag.appendChild(el);
+  frag.appendChild(el('label', {className: 'field', textContent: label}));
+  frag.appendChild(control);
   return frag;
 }
 
 function input(value, onInput, attrs) {
-  const el = document.createElement('input');
-  el.value = value ?? '';
-  Object.assign(el, attrs || {});
-  el.oninput = () => { onInput(el.value); markDirty(); };
-  return el;
+  const e = document.createElement('input');
+  e.value = value ?? '';
+  Object.assign(e, attrs || {});
+  e.oninput = () => { onInput(e.value); markDirty(); };
+  return e;
+}
+
+function select(options, value, onChange) {
+  const s = document.createElement('select');
+  options.forEach(([v, label]) => s.appendChild(new Option(label, v)));
+  s.value = value;
+  s.onchange = () => onChange(s.value);
+  return s;
 }
 
 let screenTimer = 0;
@@ -433,24 +768,20 @@ function changed() {
 
 function iconEditor(icon, title, onSwitchType) {
   const box = document.createElement('div');
-  box.appendChild(seg([['glyph', 'Biểu tượng'], ['app', 'Icon app'], ['image', 'Ảnh'], ['none', 'Không']], icon.Type, (t) => {
-    icon.Type = t;
+  box.appendChild(seg([['glyph', t('icon.glyph')], ['app', t('icon.app')], ['image', t('icon.image')], ['none', t('icon.none')]], icon.Type, (v) => {
+    icon.Type = v;
     changed();
     onSwitchType();
   }));
   if (icon.Type === 'glyph') {
-    const search = input('', () => {}, {placeholder: 'Tìm: mic, loa, khoá, terminal…'});
+    const search = input('', () => {}, {placeholder: t('glyph_search')});
     search.style.marginTop = '8px';
-    const grid = document.createElement('div');
-    grid.className = 'glyphs';
+    const grid = el('div', {className: 'glyphs'});
     const fill = () => {
       const q = search.value.trim().toLowerCase();
       grid.innerHTML = '';
       glyphs.filter((g) => !q || g.name.includes(q)).forEach((g) => {
-        const b = document.createElement('button');
-        b.textContent = glyphChar(g.code);
-        b.title = g.name;
-        b.className = g.code === icon.Glyph ? 'on' : '';
+        const b = el('button', {textContent: glyphChar(g.code), title: g.name, className: g.code === icon.Glyph ? 'on' : ''});
         b.onclick = () => { icon.Glyph = g.code; changed(); fill(); };
         grid.appendChild(b);
       });
@@ -460,13 +791,10 @@ function iconEditor(icon, title, onSwitchType) {
     box.appendChild(search);
     box.appendChild(grid);
   } else if (icon.Type === 'app') {
-    const row = document.createElement('div');
-    row.className = 'row';
+    const row = el('div', {className: 'row'});
     row.style.marginTop = '8px';
-    const path = input(icon.Path, (v) => { icon.Path = v; changed(); }, {placeholder: 'C:\\...\\app.exe'});
-    path.className = 'grow';
-    const pick = document.createElement('button');
-    pick.textContent = 'Chọn…';
+    const path = input(icon.Path, (v) => { icon.Path = v; changed(); }, {placeholder: 'C:\\...\\app.exe', className: 'grow'});
+    const pick = el('button', {textContent: t('choose')});
     pick.onclick = async () => {
       const r = await api('/api/pick', {Kind: 'exe'});
       if (r.path) { icon.Path = r.path; path.value = r.path; changed(); }
@@ -474,14 +802,11 @@ function iconEditor(icon, title, onSwitchType) {
     row.appendChild(path);
     row.appendChild(pick);
     box.appendChild(row);
-    box.appendChild(Object.assign(document.createElement('div'), {className: 'note', textContent: 'Lấy icon của file .exe, .lnk hay thư mục, như Explorer.'}));
+    box.appendChild(note(t('app_note')));
   } else if (icon.Type === 'image') {
-    const row = document.createElement('div');
-    row.className = 'row';
+    const row = el('div', {className: 'row'});
     row.style.marginTop = '8px';
-    const file = document.createElement('input');
-    file.type = 'file';
-    file.accept = 'image/*';
+    const file = el('input', {type: 'file', accept: 'image/*'});
     file.style.display = 'none';
     file.onchange = () => {
       const f = file.files[0];
@@ -497,41 +822,32 @@ function iconEditor(icon, title, onSwitchType) {
       };
       reader.readAsDataURL(f);
     };
-    const up = document.createElement('button');
-    up.textContent = icon.Path ? 'Đổi ảnh…' : 'Tải ảnh lên…';
+    const up = el('button', {textContent: icon.Path ? t('change_image') : t('upload')});
     up.onclick = () => file.click();
     row.appendChild(up);
-    row.appendChild(Object.assign(document.createElement('span'), {className: 'mini', textContent: icon.Path || 'Ảnh phủ kín phím, như Elgato'}));
+    row.appendChild(el('span', {className: 'mini', textContent: icon.Path || t('image_note')}));
     box.appendChild(row);
     box.appendChild(file);
   }
   if (icon.Type !== 'none') {
-    const colors = document.createElement('div');
-    colors.className = 'row';
+    const colors = el('div', {className: 'row'});
     colors.style.marginTop = '10px';
-    const bg = document.createElement('input');
-    bg.type = 'color';
-    bg.value = icon.Bg || '#2B2C33';
+    const bg = el('input', {type: 'color', value: icon.Bg || '#2B2C33'});
     bg.oninput = () => { icon.Bg = bg.value.toUpperCase(); changed(); };
-    const sw = document.createElement('div');
-    sw.className = 'swatches grow';
+    const sw = el('div', {className: 'swatches grow'});
     SWATCHES.forEach((c) => {
-      const b = document.createElement('button');
+      const b = el('button', {title: c});
       b.style.background = c;
-      b.title = c;
       b.onclick = () => { icon.Bg = c; bg.value = c; changed(); };
       sw.appendChild(b);
     });
-    colors.appendChild(Object.assign(document.createElement('span'), {className: 'mini', textContent: 'Nền'}));
+    colors.appendChild(el('span', {className: 'mini', textContent: t('bg')}));
     colors.appendChild(bg);
     colors.appendChild(sw);
     if (icon.Type === 'glyph') {
-      const fg = document.createElement('input');
-      fg.type = 'color';
-      fg.value = icon.Fg || '#FFFFFF';
-      fg.title = 'Màu biểu tượng';
+      const fg = el('input', {type: 'color', value: icon.Fg || '#FFFFFF', title: t('icon_color')});
       fg.oninput = () => { icon.Fg = fg.value.toUpperCase(); changed(); };
-      colors.appendChild(Object.assign(document.createElement('span'), {className: 'mini', textContent: 'Icon'}));
+      colors.appendChild(el('span', {className: 'mini', textContent: 'Icon'}));
       colors.appendChild(fg);
     }
     box.appendChild(colors);
@@ -539,24 +855,35 @@ function iconEditor(icon, title, onSwitchType) {
   return box;
 }
 
+// Ô chọn tên cảnh / nguồn OBS: danh sách thật khi đã nối, không thì gõ tay
+function obsNamePicker(names, value, onPick) {
+  if (names && names.length) {
+    const opts = names.map((n) => [n, n]);
+    if (value && !names.includes(value)) opts.unshift([value, value + ' (?)']);
+    if (!value) onPick(names[0]);
+    return select(opts, value || names[0], onPick);
+  }
+  return input(value, onPick, {placeholder: t('obs.type_name')});
+}
+
 function actionEditor(action, key, isHold) {
   const box = document.createElement('div');
-  const type = document.createElement('select');
-  ACTIONS.forEach(([v, label]) => type.appendChild(new Option(label, v)));
-  type.value = action.Type || 'none';
-  type.onchange = () => { action.Type = type.value; markDirty(); renderEditor(); };
-  box.appendChild(type);
+  box.appendChild(select(ACTIONS.map((v) => [v, t('act.' + v)]), action.Type || 'none', (v) => {
+    action.Type = v;
+    if (v === 'obs' && !OBS_CMDS.includes(action.Cmd)) action.Cmd = 'scene';
+    if (v === 'obs') setTimeout(pollStatus, 0);  // nối OBS ngay để có danh sách cảnh
+    markDirty();
+    renderEditor();
+  }));
 
   if (action.Type === 'run') {
-    const presets = document.createElement('div');
-    presets.className = 'presets';
+    const presets = el('div', {className: 'presets'});
     PRESETS.forEach(([label, path, admin, glyph, bg]) => {
-      const b = document.createElement('button');
-      b.textContent = label;
+      const b = el('button', {textContent: label});
       b.onclick = () => {
         Object.assign(action, {Path: path, Args: '', Dir: '', Admin: admin});
         if (!isHold) {
-          if (!key.Title || PRESETS.some((p) => p[0] === key.Title)) key.Title = label.replace('Windows ', '');
+          if (!key.Title || PRESETS.some((p) => p[0] === key.Title || p[0].replace('Windows ', '') === key.Title)) key.Title = label.replace('Windows ', '');
           if (key.Icon.Type === 'none' || key.Icon.Type === 'glyph') Object.assign(key.Icon, {Type: 'glyph', Glyph: glyph, Bg: bg, Fg: '#FFFFFF'});
         }
         changed();
@@ -565,12 +892,9 @@ function actionEditor(action, key, isHold) {
       presets.appendChild(b);
     });
     box.appendChild(presets);
-    const row = document.createElement('div');
-    row.className = 'row';
-    const path = input(action.Path, (v) => { action.Path = v; }, {placeholder: 'C:\\...\\chuong-trinh.exe'});
-    path.className = 'grow';
-    const pick = document.createElement('button');
-    pick.textContent = 'Chọn…';
+    const row = el('div', {className: 'row'});
+    const path = input(action.Path, (v) => { action.Path = v; }, {placeholder: t('program_ph'), className: 'grow'});
+    const pick = el('button', {textContent: t('choose')});
     pick.onclick = async () => {
       const r = await api('/api/pick', {Kind: 'exe'});
       if (!r.path) return;
@@ -583,24 +907,18 @@ function actionEditor(action, key, isHold) {
     };
     row.appendChild(path);
     row.appendChild(pick);
-    box.appendChild(field('Chương trình', row));
-    box.appendChild(field('Tham số', input(action.Args, (v) => { action.Args = v; }, {placeholder: 'ví dụ: -NoExit -Command "cd D:\\du-an"'})));
-    box.appendChild(field('Thư mục làm việc', input(action.Dir, (v) => { action.Dir = v; }, {placeholder: 'để trống: mặc định'})));
-    const admin = document.createElement('label');
-    admin.className = 'check';
-    admin.innerHTML = '<input type="checkbox"' + (action.Admin ? ' checked' : '') + '><span>Chạy bằng quyền admin</span>';
+    box.appendChild(field(t('program'), row));
+    box.appendChild(field(t('args'), input(action.Args, (v) => { action.Args = v; }, {placeholder: t('args_ph')})));
+    box.appendChild(field(t('workdir'), input(action.Dir, (v) => { action.Dir = v; }, {placeholder: t('workdir_ph')})));
+    const admin = el('label', {className: 'check'});
+    admin.innerHTML = '<input type="checkbox"' + (action.Admin ? ' checked' : '') + '><span>' + esc(t('admin')) + '</span>';
     admin.querySelector('input').onchange = (e) => { action.Admin = e.target.checked; markDirty(); renderEditor(); };
     box.appendChild(admin);
-    if (action.Admin) {
-      box.appendChild(Object.assign(document.createElement('div'), {
-        className: 'note warn',
-        textContent: 'Khi lưu, Windows hỏi UAC một lần để đăng ký lệnh này vào Task Scheduler (thư mục CydDeck). Sau đó bấm phím là chạy quyền admin ngay, không hỏi nữa: ai chạm vào bảng cũng mở được.',
-      }));
-    }
+    if (action.Admin) box.appendChild(note(t('admin_note'), 'warn'));
   } else if (action.Type === 'open') {
-    box.appendChild(field('Địa chỉ', input(action.Target, (v) => { action.Target = v; }, {placeholder: 'https://… , D:\\thu-muc , ms-settings:sound'})));
+    box.appendChild(field(t('address'), input(action.Target, (v) => { action.Target = v; }, {placeholder: t('address_ph')})));
   } else if (action.Type === 'hotkey') {
-    const keys = input(action.Keys, (v) => { action.Keys = v; }, {placeholder: 'Bấm tổ hợp phím vào đây'});
+    const keys = input(action.Keys, (v) => { action.Keys = v; }, {placeholder: t('hotkey_ph')});
     keys.onkeydown = (e) => {
       e.preventDefault();
       const parts = [];
@@ -618,28 +936,40 @@ function actionEditor(action, key, isHold) {
       action.Keys = keys.value;
       markDirty();
     };
-    box.appendChild(field('Tổ hợp phím', keys));
-    box.appendChild(Object.assign(document.createElement('div'), {className: 'note', textContent: 'Phím Win thì gõ tay, ví dụ Win+Shift+S (trình duyệt không bắt được phím Win).'}));
+    box.appendChild(field(t('hotkey'), keys));
+    box.appendChild(note(t('hotkey_note')));
   } else if (action.Type === 'text') {
-    const area = document.createElement('textarea');
-    area.rows = 3;
-    area.value = action.Text || '';
+    const area = el('textarea', {rows: 3, value: action.Text || ''});
     area.oninput = () => { action.Text = area.value; markDirty(); };
-    box.appendChild(field('Đoạn chữ', area));
+    box.appendChild(field(t('text'), area));
   } else if (action.Type === 'media' || action.Type === 'volume') {
     const opts = action.Type === 'media'
-        ? [['playpause', 'Phát/dừng'], ['next', 'Bài sau'], ['prev', 'Bài trước'], ['stop', 'Dừng']]
-        : [['up', 'To lên'], ['down', 'Nhỏ lại'], ['mute', 'Tắt tiếng']];
+        ? [['playpause', t('media.playpause')], ['next', t('media.next')], ['prev', t('media.prev')], ['stop', t('media.stop')]]
+        : [['up', t('vol.up')], ['down', t('vol.down')], ['mute', t('vol.mute')]];
     if (!opts.some((o) => o[0] === action.Cmd)) action.Cmd = opts[0][0];
-    box.appendChild(field('Việc', seg(opts, action.Cmd, (v) => { action.Cmd = v; markDirty(); renderEditor(); })));
+    box.appendChild(field(t('what'), seg(opts, action.Cmd, (v) => { action.Cmd = v; markDirty(); renderEditor(); })));
+  } else if (action.Type === 'obs') {
+    const obs = (status && status.obs) || {scenes: [], inputs: []};
+    if (!OBS_CMDS.includes(action.Cmd)) action.Cmd = 'scene';
+    box.appendChild(field(t('what'), select(OBS_CMDS.map((c) => [c, t('obs.cmd.' + c)]), action.Cmd, (v) => {
+      action.Cmd = v;
+      if (!isHold && key.Live === 'obsvolume' && v !== 'vol_up' && v !== 'vol_down') key.Live = '';
+      markDirty();
+      renderEditor();
+    })));
+    if (action.Cmd === 'scene') {
+      box.appendChild(field(t('obs.scene'), obsNamePicker(obs.connected ? obs.scenes : [], action.Target, (v) => { action.Target = v; markDirty(); })));
+    } else if (['mute', 'vol_up', 'vol_down'].includes(action.Cmd)) {
+      box.appendChild(field(t('obs.input'), obsNamePicker(obs.connected ? obs.inputs : [], action.Target, (v) => { action.Target = v; markDirty(); })));
+    }
+    if (!obs.connected) box.appendChild(note(t('obs.not_connected_note'), 'warn'));
   }
-  if (!isHold && key.Kind === 'toggle' && !(action.Type === 'mic' || (action.Type === 'volume' && action.Cmd === 'mute'))) {
-    box.appendChild(Object.assign(document.createElement('div'), {className: 'note warn',
-      textContent: 'Phím bật/tắt chỉ biết trạng thái thật với lệnh "Tắt/bật mic" và "Âm lượng loa → Tắt tiếng".'}));
+  if (!isHold && key.Kind === 'toggle' && !(action.Type === 'mic' || (action.Type === 'volume' && action.Cmd === 'mute') ||
+      (action.Type === 'media' && action.Cmd === 'playpause') || (action.Type === 'obs' && OBS_STATEFUL.includes(action.Cmd)))) {
+    box.appendChild(note(t('toggle_note'), 'warn'));
   }
   if (action.Type !== 'none') {
-    const test = document.createElement('button');
-    test.textContent = 'Thử lệnh ngay';
+    const test = el('button', {textContent: t('test')});
     test.style.marginTop = '10px';
     test.onclick = async () => {
       try {
@@ -654,85 +984,200 @@ function actionEditor(action, key, isHold) {
 
 function folderEditor(key) {
   const box = document.createElement('div');
-  const select = document.createElement('select');
   const folders = cfg.Pages.map((p, i) => i).filter((i) => cfg.Pages[i].Parent === page);
-  folders.forEach((i) => select.appendChild(new Option(cfg.Pages[i].Name, String(i))));
-  select.appendChild(new Option('+ Tạo thư mục mới', 'new'));
-  select.value = folders.includes(key.Target) ? String(key.Target) : 'new';
-  const apply = () => {
-    if (select.value === 'new') {
-      if (cfg.Pages.length >= 16) { toast('Tối đa 16 trang (kể cả thư mục)'); return; }
+  const opts = folders.map((i) => [String(i), cfg.Pages[i].Name]);
+  opts.push(['new', t('new_folder')]);
+  const apply = (v) => {
+    if (v === 'new') {
+      if (cfg.Pages.length >= 16) { toast(t('max_pages')); return; }
       const keys = Array.from({length: 8}, blankKey);
-      keys[0] = Object.assign(blankKey(), {Kind: 'back', Title: 'Quay ra'});
-      cfg.Pages.push({Name: key.Title || 'Thư mục', Parent: page, Bar: 'info', Keys: keys});
+      keys[0] = Object.assign(blankKey(), {Kind: 'back', Title: t('back')});
+      cfg.Pages.push({Name: key.Title || t('folder_default'), Parent: page, Bar: 'info', Keys: keys});
       key.Target = cfg.Pages.length - 1;
     } else {
-      key.Target = parseInt(select.value, 10);
+      key.Target = parseInt(v, 10);
     }
     changed();
     renderPages();
     renderEditor();
   };
-  select.onchange = apply;
-  if (!folders.includes(key.Target)) apply();
-  box.appendChild(field('Mở thư mục', select));
-  const open = document.createElement('button');
-  open.textContent = 'Sửa phím trong thư mục';
+  const s = select(opts, folders.includes(key.Target) ? String(key.Target) : 'new', apply);
+  if (!folders.includes(key.Target)) apply('new');
+  box.appendChild(field(t('open_folder'), s));
+  const open = el('button', {textContent: t('edit_folder')});
   open.style.marginTop = '8px';
   open.onclick = () => { page = key.Target; sel = -1; renderAll(); };
   box.appendChild(open);
   return box;
 }
 
+// ---------- phím plugin: chọn hành động và trang cài đặt (Property Inspector) của plugin ----------
+
+function pluginIcon(pluginUuid, actionUuid) {
+  return '/plugins/' + encodeURIComponent(pluginUuid) + '/@icon/' + encodeURIComponent(actionUuid || '');
+}
+
+function setPluginAction(key, uuid) {
+  key.ActionUuid = uuid;
+  key.Context = newContext();
+  key.Settings = '{}';
+  key.State = 0;
+  changed();
+  renderEditor();
+}
+
+function pluginEditor(key, slot) {
+  const box = document.createElement('div');
+  const usable = plugins.filter((p) => p.enabled && p.actions.length);
+  if (!usable.length) {
+    box.appendChild(note(t('plugin.none_installed')));
+    const b = el('button', {textContent: t('nav.plugins') + '…'});
+    b.style.marginTop = '8px';
+    b.onclick = () => { view = 'plugins'; sel = -1; renderAll(); };
+    box.appendChild(b);
+    return box;
+  }
+  const s = document.createElement('select');
+  usable.forEach((p) => {
+    const group = document.createElement('optgroup');
+    group.label = p.name;
+    p.actions.forEach((a) => group.appendChild(new Option(a.name, a.uuid)));
+    s.appendChild(group);
+  });
+  const found = findAction(key.ActionUuid);
+  if (!found) {
+    if (key.ActionUuid) {
+      box.appendChild(note(t('plugin.missing'), 'bad'));
+      s.insertBefore(new Option(key.ActionUuid + ' (?)', key.ActionUuid), s.firstChild);
+    } else {
+      setTimeout(() => setPluginAction(key, usable[0].actions[0].uuid), 0);
+    }
+  }
+  s.value = key.ActionUuid || usable[0].actions[0].uuid;
+  s.onchange = () => setPluginAction(key, s.value);
+  box.appendChild(field(t('plugin.action'), s));
+  if (found) {
+    const picked = el('div', {className: 'picked'});
+    picked.innerHTML = '<img alt="" src="' + pluginIcon(found.plugin.uuid, found.action.uuid) + '"><div><div>' + esc(found.action.name) +
+        '</div><div class="mini">' + esc(found.plugin.name + (found.action.tooltip ? ' · ' + found.action.tooltip : '')) + '</div></div>';
+    box.appendChild(picked);
+    box.appendChild(note(t('plugin.title_note')));
+    if (found.action.inspector) {
+      box.appendChild(inspector(key, slot));
+    } else {
+      box.appendChild(note(t('plugin.no_pi')));
+    }
+  }
+  return box;
+}
+
+// Property Inspector của plugin trong một iframe cùng nguồn, nối WebSocket của ElgatoHost như app Stream Deck làm
+function inspector(key, slot) {
+  const wrap = el('div', {className: 'pi'});
+  const loading = el('div', {className: 'loading', textContent: t('plugin.pi_loading')});
+  wrap.appendChild(loading);
+  api('/api/plugins/inspector', {Context: key.Context, ActionUuid: key.ActionUuid, Slot: slot, Settings: key.Settings || '{}'})
+    .then((r) => {
+      if (!r.ok || !r.inspector) { loading.textContent = t('plugin.no_pi'); return; }
+      const info = r.inspector;
+      const frame = document.createElement('iframe');
+      frame.src = info.url;
+      frame.onload = () => {
+        loading.remove();
+        try {
+          const w = frame.contentWindow;
+          const fn = w.connectElgatoStreamDeckSocket || w.connectSocket;
+          if (typeof fn === 'function') fn.call(w, info.port, key.Context, 'registerPropertyInspector', info.info, info.actionInfo);
+          // Trang thuộc tính kiểu Elgato đặt html/body cao 100 %: đo đáy của các phần tử lá thay vì scrollHeight
+          // (phần tử cao 100 % sẽ lớn theo khung, làm khung lớn mãi)
+          let pending = 0;
+          const fit = () => {
+            pending = 0;
+            const doc = frame.contentDocument;
+            if (!doc || !doc.body) return;
+            let bottom = 0;
+            for (const node of doc.body.querySelectorAll('*')) {
+              if (node.children.length) continue;
+              const r = node.getBoundingClientRect();
+              if (r.height > 0 && r.width > 0) bottom = Math.max(bottom, r.bottom);
+            }
+            const h = Math.max(80, Math.min(1400, Math.ceil(bottom + (doc.defaultView.scrollY || 0) + 14)));
+            if (Math.abs(frame.offsetHeight - h) > 2) frame.style.height = h + 'px';
+          };
+          const soon = () => { if (!pending) pending = requestAnimationFrame(fit); };
+          fit();
+          const doc = frame.contentDocument;
+          new ResizeObserver(soon).observe(doc.body);
+          new MutationObserver(soon).observe(doc.body, {childList: true, subtree: true, attributes: true, characterData: true});
+          let ticks = 0;
+          const timer = setInterval(() => { soon(); if (++ticks > 20 || !frame.isConnected) clearInterval(timer); }, 250);
+        } catch (e) {
+          wrap.appendChild(note(String(e.message || e), 'bad'));
+        }
+      };
+      wrap.appendChild(frame);
+    })
+    .catch((e) => { loading.textContent = e.message; });
+  return wrap;
+}
+
 function renderEditor() {
   const ed = $('editor');
   ed.innerHTML = '';
+  if (view === 'plugins') { renderPlugins(ed); return; }
+  if (view === 'obs') { renderObs(ed); return; }
   if (sel < 0) {
-    ed.innerHTML = '<div class="empty-editor">Chọn một phím để sửa</div>';
+    ed.innerHTML = '<div class="empty-editor">' + esc(t('pick_key')) + '</div>';
     return;
   }
   const p = cfg.Pages[page];
   const key = p.Keys[sel];
-  const head = document.createElement('div');
-  head.className = 'row';
-  head.innerHTML = '<b class="grow">Phím ' + (sel + 1) + '</b>';
-  const clear = document.createElement('button');
-  clear.className = 'ghost';
-  clear.textContent = 'Xoá phím';
+  const head = el('div', {className: 'row'});
+  head.innerHTML = '<b class="grow">' + esc(t('key_n', sel + 1)) + '</b>';
+  const clear = el('button', {className: 'ghost', textContent: t('key.clear')});
   clear.onclick = () => { p.Keys[sel] = blankKey(); changed(); renderEditor(); };
   head.appendChild(clear);
   ed.appendChild(head);
 
-  const kinds = KINDS.slice();
-  if (p.Parent >= 0) kinds.push(['back', 'Quay ra']);
-  ed.appendChild(field('Loại phím', seg(kinds, key.Kind, (v) => {
+  const kinds = KINDS();
+  if (p.Parent >= 0) kinds.push(['back', t('back')]);
+  ed.appendChild(field(t('kind'), seg(kinds, key.Kind, (v) => {
+    if (v === key.Kind) return;
     key.Kind = v;
-    if (v === 'toggle' && !key.IconOn) {
-      key.IconOn = Object.assign(blankIcon(), key.Icon, {Bg: '#B3261E'});
+    if (v === 'toggle' && !key.IconOn) key.IconOn = Object.assign(blankIcon(), key.Icon, {Bg: '#B3261E'});
+    if (v === 'plugin') {
+      key.Icon = blankIcon();
+      key.ActionUuid = '';
+    } else if (v !== 'empty' && v !== 'back' && key.Icon.Type === 'none') {
+      Object.assign(key.Icon, {Type: 'glyph', Glyph: v === 'folder' ? 'E8B7' : 'E700'});
     }
-    if (v !== 'empty' && v !== 'back' && key.Icon.Type === 'none') Object.assign(key.Icon, {Type: 'glyph', Glyph: v === 'folder' ? 'E8B7' : 'E700'});
     changed();
     renderEditor();
   })));
   if (key.Kind === 'empty' || key.Kind === 'back') {
-    if (key.Kind === 'back') ed.appendChild(field('Nhãn', input(key.Title, (v) => { key.Title = v; changed(); }, {maxLength: 20})));
+    if (key.Kind === 'back') ed.appendChild(field(t('label'), input(key.Title, (v) => { key.Title = v; changed(); }, {maxLength: 20})));
     return;
   }
-  ed.appendChild(field('Nhãn', input(key.Title, (v) => { key.Title = v; changed(); }, {maxLength: 20, placeholder: 'ngắn, ~10 chữ cái thì vừa phím'})));
+  ed.appendChild(field(t('label'), input(key.Title, (v) => { key.Title = v; changed(); }, {maxLength: 20, placeholder: t('label_ph')})));
+  if (key.Kind === 'plugin') {
+    const box = el('div', {className: 'box action'});
+    box.innerHTML = '<div class="head"><b>' + esc(t('plugin.settings')) + '</b></div>';
+    box.appendChild(pluginEditor(key, sel));
+    ed.appendChild(box);
+    return;
+  }
   if (key.Kind === 'toggle') {
-    ed.appendChild(field('Nhãn khi bật', input(key.TitleOn, (v) => { key.TitleOn = v; changed(); }, {maxLength: 20, placeholder: 'ví dụ: Mic tắt'})));
+    ed.appendChild(field(t('label_on'), input(key.TitleOn, (v) => { key.TitleOn = v; changed(); }, {maxLength: 20, placeholder: t('label_on_ph')})));
   }
 
-  const iconBox = document.createElement('div');
-  iconBox.className = 'box';
-  iconBox.innerHTML = '<div class="head"><b>' + (key.Kind === 'toggle' ? 'Icon khi tắt' : 'Icon') + '</b></div>';
+  const iconBox = el('div', {className: 'box'});
+  iconBox.innerHTML = '<div class="head"><b>' + esc(t(key.Kind === 'toggle' ? 'icon_off' : 'icon')) + '</b></div>';
   iconBox.appendChild(iconEditor(key.Icon, key.Title, renderEditor));
   ed.appendChild(iconBox);
   if (key.Kind === 'toggle') {
     if (!key.IconOn) key.IconOn = blankIcon();
-    const onBox = document.createElement('div');
-    onBox.className = 'box';
-    onBox.innerHTML = '<div class="head"><b>Icon khi bật</b></div>';
+    const onBox = el('div', {className: 'box'});
+    onBox.innerHTML = '<div class="head"><b>' + esc(t('icon_on')) + '</b></div>';
     onBox.appendChild(iconEditor(key.IconOn, key.TitleOn || key.Title, renderEditor));
     ed.appendChild(onBox);
   }
@@ -742,23 +1187,203 @@ function renderEditor() {
     return;
   }
 
-  const actionBox = document.createElement('div');
-  actionBox.className = 'box';
-  actionBox.innerHTML = '<div class="head"><b>Lệnh khi chạm</b></div>';
+  const actionBox = el('div', {className: 'box action'});
+  actionBox.innerHTML = '<div class="head"><b>' + esc(t('on_tap')) + '</b></div>';
   actionBox.appendChild(actionEditor(key.Action, key, false));
   ed.appendChild(actionBox);
 
-  const holdBox = document.createElement('div');
-  holdBox.className = 'box';
-  holdBox.innerHTML = '<div class="head"><b>Lệnh khi giữ 0,5 giây</b><span class="mini">không có: chạy lệnh khi chạm</span></div>';
+  const holdBox = el('div', {className: 'box'});
+  holdBox.innerHTML = '<div class="head"><b>' + esc(t('on_hold')) + '</b><span class="mini">' + esc(t('on_hold_note')) + '</span></div>';
   holdBox.appendChild(actionEditor(key.Hold, key, true));
   ed.appendChild(holdBox);
 
-  const live = document.createElement('label');
-  live.className = 'check';
-  live.innerHTML = '<input type="checkbox"' + (key.Live === 'volume' ? ' checked' : '') + '><span>Nhãn hiện âm lượng loa (ví dụ 62%)</span>';
-  live.querySelector('input').onchange = (e) => { key.Live = e.target.checked ? 'volume' : ''; changed(); };
-  ed.appendChild(live);
+  const lives = [['', t('live.none')], ['volume', t('live.volume')]];
+  if (key.Action.Type === 'obs' && ['vol_up', 'vol_down'].includes(key.Action.Cmd)) lives.push(['obsvolume', t('live.obsvolume')]);
+  ed.appendChild(field(t('live'), select(lives, key.Live || '', (v) => { key.Live = v; changed(); })));
+}
+
+// ---------- mục Plugin ----------
+
+function renderPlugins(ed) {
+  ed.appendChild(el('h2', {textContent: t('nav.plugins')}));
+  ed.appendChild(note(t('plugins.intro')));
+  ed.appendChild(note(t('plugins.warn'), 'warn'));
+  const install = el('button', {className: 'primary', textContent: t('plugin.install')});
+  install.style.marginTop = '12px';
+  install.onclick = async () => {
+    install.disabled = true;
+    try {
+      const r = await api('/api/plugins/install', {});
+      if (r.plugins) plugins = r.plugins;
+      toast(r.message);
+      previews.clear();
+      renderAll();
+    } catch (e) { toast(e.message); } finally { install.disabled = false; }
+  };
+  ed.appendChild(install);
+  ed.appendChild(note(t('plugins.get')));
+  if (!plugins.length) ed.appendChild(note(t('plugin.none_installed')));
+  const used = (uuid) => cfg.Pages.reduce((n, p) => n + p.Keys.filter((k) => {
+    const f = k.Kind === 'plugin' && findAction(k.ActionUuid);
+    return f && f.plugin.uuid === uuid;
+  }).length, 0);
+  plugins.forEach((p) => {
+    const card = el('div', {className: 'plugin' + (p.enabled ? '' : ' off')});
+    const n = used(p.uuid);
+    card.innerHTML = '<img alt="" src="' + pluginIcon(p.uuid, '') + '"><div><div class="name">' + esc(p.name) +
+        '<span class="tag">' + esc(t('plugins.rt.' + p.runtime)) + '</span>' + (p.enabled ? '' : '<span class="tag">' + esc(t('plugins.off')) + '</span>') +
+        '</div><div class="meta">' + esc([p.version, p.author, t('plugins.actions', p.actions.length), n ? t('plugins.used', n) : ''].filter(Boolean).join(' · ')) +
+        '</div>' + (p.error ? '<div class="note bad">' + esc(p.error) + '</div>' : '') + '<div class="tools"></div><div class="logs"></div></div>';
+    const tools = card.querySelector('.tools');
+    const act = async (path, body, after) => {
+      try {
+        const r = await api(path, body);
+        if (r.plugins) plugins = r.plugins;
+        toast(r.message);
+        if (after) after(r);
+        previews.clear();
+        renderAll();
+      } catch (e) { toast(e.message); }
+    };
+    const toggle = el('button', {textContent: t(p.enabled ? 'plugins.disable' : 'plugins.enable')});
+    toggle.onclick = () => act('/api/plugins/enable', {Uuid: p.uuid, Enabled: !p.enabled});
+    const restart = el('button', {textContent: t('plugins.restart')});
+    restart.onclick = () => act('/api/plugins/restart', {Uuid: p.uuid});
+    const log = el('button', {textContent: t('plugins.log')});
+    const logs = card.querySelector('.logs');
+    log.onclick = async () => {
+      if (logs.firstChild) { logs.innerHTML = ''; log.textContent = t('plugins.log'); return; }
+      try {
+        const r = await api('/api/plugins/log', {Uuid: p.uuid});
+        const pre = el('pre', {className: 'log', textContent: r.text || t('plugins.log_empty')});
+        logs.appendChild(pre);
+        pre.scrollTop = pre.scrollHeight;
+        log.textContent = t('plugins.hide_log');
+      } catch (e) { toast(e.message); }
+    };
+    const remove = el('button', {className: 'danger', textContent: t('plugins.remove')});
+    remove.onclick = () => { if (confirm(t('plugins.confirm_remove', p.name))) act('/api/plugins/remove', {Uuid: p.uuid}); };
+    [toggle, restart, log, remove].forEach((b) => tools.appendChild(b));
+    ed.appendChild(card);
+  });
+  ed.appendChild(note(t('plugins.limits')));
+}
+
+// ---------- mục OBS ----------
+
+function obsStatusLine() {
+  const line = $('obsState');
+  if (!line || !status) return;
+  const o = status.obs;
+  let text, cls;
+  if (!o.enabled) { text = t('obs.state.disabled'); cls = 'warn'; }
+  else if (o.connected) { text = t('obs.state.on'); cls = 'ok'; }
+  else if (!o.wanted) { text = t('obs.state.idle'); cls = ''; }
+  else { text = t('obs.state.off') + (o.status ? ': ' + o.status : ''); cls = 'warn'; }
+  line.innerHTML = '<span class="pill ' + cls + '">' + esc(text) + '</span>' +
+      (o.connected ? '<span class="mini">' + esc(t('obs.scenes', o.scenes.length ? o.scenes.join(', ') : '—')) + '</span>' : '');
+}
+
+function renderObs(ed) {
+  const o = status.obs;
+  ed.appendChild(el('h2', {textContent: 'OBS Studio'}));
+  ed.appendChild(note(t('obs.intro')));
+  ed.appendChild(el('div', {className: 'status-line', id: 'obsState'}));
+  ed.appendChild(note(t('obs.howto')));
+  const form = {Host: o.host, Port: o.port, Password: '', Enabled: o.enabled};
+  const enabled = el('label', {className: 'check'});
+  enabled.innerHTML = '<input type="checkbox"' + (o.enabled ? ' checked' : '') + '><span>' + esc(t('obs.enabled')) + '</span>';
+  enabled.querySelector('input').onchange = (e) => { form.Enabled = e.target.checked; };
+  ed.appendChild(enabled);
+  const row = el('div', {className: 'row'});
+  const host = el('div', {className: 'grow'});
+  host.appendChild(field(t('obs.host'), input(o.host, (v) => { form.Host = v; }, {})));
+  const port = el('div');
+  port.style.width = '96px';
+  port.appendChild(field(t('obs.port'), input(String(o.port), (v) => { form.Port = parseInt(v, 10) || 4455; }, {type: 'number', min: 1, max: 65535})));
+  row.appendChild(host);
+  row.appendChild(port);
+  ed.appendChild(row);
+  ed.appendChild(field(t('obs.password'), input('', (v) => { form.Password = v; },
+      {type: 'password', autocomplete: 'off', placeholder: o.hasPassword ? t('obs.password_saved') : t('obs.password_none')})));
+  // các ô trên không phải bộ phím: không đánh dấu "Chưa lưu"
+  ed.querySelectorAll('input').forEach((i) => { const f = i.oninput; i.oninput = () => { const d = dirty; f && f(); if (!d) { dirty = false; $('dirty').textContent = ''; } }; });
+  const buttons = el('div', {className: 'row'});
+  buttons.style.marginTop = '12px';
+  buttons.style.flexWrap = 'wrap';
+  const save = el('button', {className: 'primary', textContent: t('obs.save')});
+  save.onclick = async () => {
+    try {
+      const r = await api('/api/obs', form);
+      toast(r.message);
+      showStatus(r.status);
+      renderEditor();
+    } catch (e) { toast(e.message); }
+  };
+  const local = el('button', {textContent: t('obs.local')});
+  local.onclick = async () => {
+    try {
+      const r = await api('/api/obs/local', {});
+      toast(r.message);
+      showStatus(r.status);
+      renderEditor();
+    } catch (e) { toast(e.message); }
+  };
+  buttons.appendChild(save);
+  buttons.appendChild(local);
+  ed.appendChild(buttons);
+
+  const box = el('div', {className: 'box'});
+  box.innerHTML = '<div class="head"><b>' + esc(t('obs.make_folder')) + '</b></div>';
+  box.appendChild(note(t('obs.make_folder_note')));
+  const make = el('button', {textContent: t('obs.make_folder')});
+  make.style.marginTop = '10px';
+  make.onclick = makeObsFolder;
+  box.appendChild(make);
+  ed.appendChild(box);
+  obsStatusLine();
+}
+
+const glyphKey = (title, glyph, bg, extra) => Object.assign(blankKey(), {Kind: 'action', Title: title,
+  Icon: Object.assign(blankIcon(), {Type: 'glyph', Glyph: glyph, Bg: bg})}, extra || {});
+const obsAction = (cmd, target) => Object.assign(blankAction(), {Type: 'obs', Cmd: cmd, Target: target || ''});
+
+// Thư mục giống demo: các cảnh, Ghi hình, Live, Mic, Nhạc nền (âm lượng, giữ để giảm)
+function makeObsFolder() {
+  const o = status.obs;
+  if (!o.connected || !o.scenes.length) { toast(t('obs.need_scenes')); return; }
+  const p = cfg.Pages[page];
+  const slot = p.Keys.findIndex((k) => k.Kind === 'empty');
+  if (slot < 0) { toast(t('obs.no_slot')); return; }
+  if (cfg.Pages.length >= 16) { toast(t('max_pages')); return; }
+  const keys = Array.from({length: 8}, blankKey);
+  keys[0] = Object.assign(blankKey(), {Kind: 'back', Title: t('back')});
+  const colors = ['#3B4BC8', '#0E6E8C', '#4A3A8C'];
+  o.scenes.slice(0, 3).forEach((name, i) => {
+    keys[1 + i] = glyphKey(name.slice(0, 20), 'E7F4', colors[i], {Kind: 'toggle', TitleOn: name.slice(0, 20),
+      IconOn: Object.assign(blankIcon(), {Type: 'glyph', Glyph: 'E7F4', Bg: '#1A9E4B'}), Action: obsAction('scene', name)});
+  });
+  keys[4] = glyphKey(t('obs.k.record'), 'E7C8', '#2B2C33', {Kind: 'toggle', TitleOn: t('obs.k.recording'),
+    IconOn: Object.assign(blankIcon(), {Type: 'glyph', Glyph: 'E7C8', Bg: '#B3261E'}), Action: obsAction('record')});
+  keys[5] = glyphKey(t('obs.k.live'), 'E93E', '#2B2C33', {Kind: 'toggle', TitleOn: t('obs.k.onair'),
+    IconOn: Object.assign(blankIcon(), {Type: 'glyph', Glyph: 'E93E', Bg: '#B3261E'}), Action: obsAction('stream')});
+  const find = (re) => o.inputs.find((n) => re.test(n));
+  const mic = find(/mic|aux|micro/i) || o.inputs[0];
+  const music = find(/music|nhạc|nhac|audio|desktop|âm thanh/i) || o.inputs.find((n) => n !== mic) || mic;
+  if (mic) {
+    keys[6] = glyphKey(t('obs.k.mic'), 'E720', '#2B2C33', {Kind: 'toggle', TitleOn: t('obs.k.mic_off'),
+      IconOn: Object.assign(blankIcon(), {Type: 'glyph', Glyph: 'EC54', Bg: '#B3261E'}), Action: obsAction('mute', mic)});
+  }
+  if (music) {
+    keys[7] = glyphKey(t('obs.k.music'), 'EC4F', '#8A4B00', {Action: obsAction('vol_up', music), Hold: obsAction('vol_down', music), Live: 'obsvolume'});
+  }
+  cfg.Pages.push({Name: 'OBS', Parent: page, Bar: 'obs', Keys: keys});
+  p.Keys[slot] = glyphKey('OBS', 'E7C8', '#4A3A8C', {Kind: 'folder', Target: cfg.Pages.length - 1});
+  sel = slot;
+  view = 'key';
+  markDirty();
+  toast(t('obs.folder_added'));
+  renderAll();
 }
 
 function renderAll() {
@@ -768,12 +1393,12 @@ function renderAll() {
   renderEditor();
 }
 
-$('profileName').oninput = (e) => { cfg.Name = e.target.value; changed(); };
+$('profileName').oninput = (e) => { cfg.Name = e.target.value; changed(); renderBar(); };
 
 // Lưới phím tự thu nhỏ khi cửa sổ hẹp
 function fitDevice() {
   const center = document.querySelector('.center');
-  const z = Math.max(0.45, Math.min(1, (center.clientWidth - 40) / 500));
+  const z = Math.max(0.45, Math.min(1.6, (center.clientWidth - 40) / 500, (center.clientHeight - 90) / 380));
   document.querySelector('.device').style.setProperty('--z', z.toFixed(3));
 }
 window.addEventListener('resize', fitDevice);
@@ -783,7 +1408,7 @@ $('save').onclick = async () => {
   if (saving) return;
   saving = true;
   $('save').disabled = true;
-  $('save').textContent = 'Đang lưu…';
+  $('save').textContent = t('btn.saving');
   try {
     const r = await api('/api/config', cfg, 'PUT');
     cfg = r.config;
@@ -792,23 +1417,38 @@ $('save').onclick = async () => {
     dirty = false;
     $('dirty').textContent = '';
     toast(r.message);
+    previews.clear();
     renderAll();
   } catch (e) {
-    toast('Không lưu được: ' + e.message);
+    toast(t('cannot_save', e.message));
   } finally {
     saving = false;
     $('save').disabled = false;
-    $('save').textContent = 'Lưu và gửi xuống bo';
+    $('save').textContent = t('btn.save');
   }
 };
+
+document.querySelectorAll('#lang button').forEach((b) => {
+  b.onclick = async () => {
+    if (b.dataset.lang === LANG) return;
+    try {
+      const r = await api('/api/lang', {Lang: b.dataset.lang});
+      LANG = r.lang;
+      cfg.Lang = r.lang;
+      applyStatic();
+      showStatus(status);
+      renderAll();
+    } catch (e) { toast(e.message); }
+  };
+});
 
 $('openFolder').onclick = () => api('/api/open-folder', {}).catch((e) => toast(e.message));
 
 window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
+applyStatic();
 load().catch((e) => {
-  document.body.innerHTML = '<p style="padding:24px">Không đọc được dữ liệu từ CydAgent: ' + esc(e.message) +
-      '. Mở lại cửa sổ này từ menu "Cài đặt Deck…" ở icon CydAgent trên khay.</p>';
+  document.body.innerHTML = '<p style="padding:24px">' + esc(t('load_failed', e.message)) + '</p>';
 });
 </script>
 </body>

@@ -59,6 +59,8 @@ $BoardEnvFile = Join-Path $PSScriptRoot 'board-env.txt'
 $DriverUrl = 'https://www.wch-ic.com/downloads/CH341SER_EXE.html'
 # Chip USB-UART hay gặp trên bo ESP32: CH340/CH9102 (WCH), CP210x (Silabs), USB của ESP32-S3
 $UsbSerialIds = 'VID_1A86|VID_10C4|VID_303A'
+# Firmware Deck nói ở 921600 baud (src/cyd/cyd_hw.cpp)
+$SerialBaud = 921600
 
 # ---------------------------------------------------------------------------
 # In ấn
@@ -174,7 +176,7 @@ function Invoke-Flash([string]$TargetEnv, [string]$ComPort) {
 
 # Khởi động lại bo và đọc log khởi động qua Serial
 function Read-BootLog([string]$ComPort, [int]$Seconds = 8) {
-    $sp = New-Object System.IO.Ports.SerialPort $ComPort, 115200, ([IO.Ports.Parity]::None), 8, ([IO.Ports.StopBits]::One)
+    $sp = New-Object System.IO.Ports.SerialPort $ComPort, $SerialBaud, ([IO.Ports.Parity]::None), 8, ([IO.Ports.StopBits]::One)
     $sp.DtrEnable = $false
     $sp.RtsEnable = $false
     $sp.Encoding = [Text.Encoding]::UTF8
@@ -347,7 +349,7 @@ function Invoke-Shot([string]$TargetEnv, [string]$ComPort) {
     Write-Step 'Chụp (bo tự mở từng cảnh mẫu, ~2 phút)'
     New-Item -ItemType Directory -Force $outDir | Out-Null
     $logPath = Join-Path $outDir 'serial.log'
-    $sp = New-Object System.IO.Ports.SerialPort $ComPort, 115200, ([IO.Ports.Parity]::None), 8, ([IO.Ports.StopBits]::One)
+    $sp = New-Object System.IO.Ports.SerialPort $ComPort, $SerialBaud, ([IO.Ports.Parity]::None), 8, ([IO.Ports.StopBits]::One)
     $sp.DtrEnable = $false
     $sp.RtsEnable = $false
     $sp.Encoding = [Text.Encoding]::UTF8
