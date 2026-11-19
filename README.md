@@ -84,7 +84,7 @@ VI/EN đổi ngôn ngữ cho cả trang, agent và mạch.*
 
 | | |
 |---|---|
-| Bo | ESP32-2432S028R ("Cheap Yellow Display", 2,8", 320×240, ILI9341, cảm ứng điện trở XPT2046). Đã thử với màn IPS mã `81 81 B3` (firmware tự đảo màu). Bản 2 cổng USB dùng màn ST7789: env `cyd2usb`, chưa thử. |
+| Mạch | ESP32-2432S028R ("Cheap Yellow Display", 2,8", 320×240, ILI9341, cảm ứng điện trở XPT2046). Đã thử với màn IPS mã `81 81 B3` (firmware tự đảo màu). Bản 2 cổng USB dùng màn ST7789: env `cyd2usb`, chưa thử. |
 | Máy tính | Windows 10/11 có .NET Framework 4 (có sẵn). Nên dùng Windows 11: icon trong trang cài đặt lấy từ font Segoe Fluent Icons. Edge để mở cửa sổ cài đặt và chạy plugin HTML. |
 | Nạp firmware | [PlatformIO](https://platformio.org/) (bản dòng lệnh hoặc extension VS Code) |
 | Tuỳ chọn | [OBS Studio](https://obsproject.com/) 28 trở lên; [Node.js](https://nodejs.org/) cho plugin Node.js |
@@ -188,7 +188,7 @@ không kèm plugin nào; ảnh của plugin trong ảnh chụp là của tác gi
 
 Đo ngày 18/11/2026 trên mạch thật và một PC Windows 11 (16 luồng).
 
-**Bo** (bản đo `-DCYD_PERF=1 -DCYD_PERF_DEMO=4`, `perf.cpp`):
+**Mạch** (bản đo `-DCYD_PERF=1 -DCYD_PERF_DEMO=4`, `perf.cpp`):
 
 | Cảnh | Khung/giây |
 |---|---|
@@ -230,7 +230,7 @@ docs/images/ ảnh trong README
 
 Giao thức giữa PC và mạch ghi ở đầu `firmware/src/deck/link.h`.
 - PC → mạch: gói nhị phân có CRC, 921600 baud.
-- Bo → PC: dòng chữ `[DECK] ...`.
+- Mạch → PC: dòng chữ `[DECK] ...`.
 
 Ảnh phím là RGB565 72×72, mã ảnh là CRC-32 của điểm ảnh.
 
