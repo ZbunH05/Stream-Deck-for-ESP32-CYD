@@ -313,8 +313,10 @@ sealed class ElgatoHost : IDeckPlugins {
       string exe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe");
       if (!File.Exists(exe) || HostPageUrl == null) return;
       string profile = Path.Combine(Path.GetTempPath(), "CydDeck-edge-host");
+      MarkCleanExit(profile);
       string url = HostPageUrl() + "&port=" + Port + "&host=" + hostToken;
       var psi = new ProcessStartInfo(exe, "--headless=new --disable-gpu --no-first-run --no-default-browser-check " +
+                                         "--hide-crash-restore-bubble --noerrdialogs " +
                                          "--disable-extensions --disable-background-timer-throttling --disable-renderer-backgrounding " +
                                          "--disable-backgrounding-occluded-windows --user-data-dir=" + ElgatoPlugins.Quote(profile) + " " +
                                          ElgatoPlugins.Quote(url)) {
@@ -326,6 +328,22 @@ sealed class ElgatoHost : IDeckPlugins {
     }
     var until = DateTime.UtcNow.AddSeconds(10);
     while (host == null && DateTime.UtcNow < until) Thread.Sleep(100);
+  }
+
+  // Edge ẩn luôn bị tắt đột ngột (theo agent, qua Job Object), nên lần mở sau hồ sơ bị coi là "đã sập" và Edge giữ một
+  // hộp "Restore pages" (khôi phục trang) ẩn. Đánh dấu hồ sơ đã thoát bình thường trước khi mở, như các công cụ tự động
+  // hoá trình duyệt vẫn làm; cờ --hide-crash-restore-bubble là lớp chặn thứ hai.
+  static void MarkCleanExit(string profile) {
+    string prefs = Path.Combine(profile, @"Default\Preferences");
+    try {
+      if (!File.Exists(prefs)) return;
+      string text = File.ReadAllText(prefs, Encoding.UTF8);
+      string fixedText = System.Text.RegularExpressions.Regex.Replace(text, "\"exit_type\"\\s*:\\s*\"[A-Za-z]+\"", "\"exit_type\":\"Normal\"");
+      fixedText = System.Text.RegularExpressions.Regex.Replace(fixedText, "\"exited_cleanly\"\\s*:\\s*false", "\"exited_cleanly\":true");
+      if (fixedText != text) File.WriteAllText(prefs, fixedText, new UTF8Encoding(false));
+    } catch (Exception ex) {
+      Log.Agent("Không sửa được hồ sơ Edge ẩn: " + ex.Message);
+    }
   }
 
   void SendHost(Dictionary<string, object> message) {

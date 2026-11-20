@@ -251,9 +251,17 @@ static class AdminTasks {
   const string FOLDER = "CydDeck";
   static string RecordPath { get { return Path.Combine(DeckConfig.Dir, "admin-tasks.txt"); } }
 
-  // Tên tác vụ theo nội dung lệnh: sửa lệnh là tác vụ mới
+  // Tên tác vụ theo nội dung lệnh: sửa lệnh là tác vụ mới. Từ 20/11/2026 lệnh không có thư mục làm việc chạy ở thư
+  // mục người dùng (trước đó Task Scheduler cho chạy ở System32), nên tên đổi theo để lần Lưu sau đăng ký lại.
   public static string NameOf(DeckAction a) {
-    string spec = (a.Path ?? "") + "\n" + (a.Args ?? "") + "\n" + (a.Dir ?? "");
+    string dir = string.IsNullOrWhiteSpace(a.Dir) ? "<home>" : a.Dir;
+    return Hash((a.Path ?? "") + "\n" + (a.Args ?? "") + "\n" + dir);
+  }
+
+  // Tên theo cách cũ (thư mục trống), để phím vẫn chạy qua tác vụ đã đăng ký cho tới lần Lưu sau
+  static string LegacyNameOf(DeckAction a) { return Hash((a.Path ?? "") + "\n" + (a.Args ?? "") + "\n" + (a.Dir ?? "")); }
+
+  static string Hash(string spec) {
     return "k-" + Crc32.Update(0, Encoding.UTF8.GetBytes(spec.ToLowerInvariant())).ToString("x8");
   }
 
@@ -282,7 +290,7 @@ static class AdminTasks {
                   "<ExecutionTimeLimit>PT0S</ExecutionTimeLimit><Priority>4</Priority><Enabled>true</Enabled></Settings>");
     sb.Append("  <Actions Context=\"Author\"><Exec><Command>" + esc(a.Path) + "</Command>");
     if (!string.IsNullOrWhiteSpace(a.Args)) sb.Append("<Arguments>" + esc(a.Args) + "</Arguments>");
-    if (!string.IsNullOrWhiteSpace(a.Dir)) sb.Append("<WorkingDirectory>" + esc(a.Dir) + "</WorkingDirectory>");
+    sb.Append("<WorkingDirectory>" + esc(DeckActions.WorkingDir(a)) + "</WorkingDirectory>");
     sb.AppendLine("</Exec></Actions>");
     sb.AppendLine("</Task>");
     return sb.ToString();
@@ -337,14 +345,16 @@ static class AdminTasks {
 
   // true: đã chạy qua tác vụ; false: chưa đăng ký hay chạy lỗi (người gọi dùng runas)
   public static bool Run(DeckAction a) {
-    if (!IsRegistered(a)) return false;
-    var info = new ProcessStartInfo("schtasks.exe", "/Run /TN \"\\" + FOLDER + "\\" + NameOf(a) + "\"") {
+    var registered = Registered();
+    string name = registered.Contains(NameOf(a)) ? NameOf(a) : registered.Contains(LegacyNameOf(a)) ? LegacyNameOf(a) : null;
+    if (name == null) return false;
+    var info = new ProcessStartInfo("schtasks.exe", "/Run /TN \"\\" + FOLDER + "\\" + name + "\"") {
       UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
     };
     using (var p = Process.Start(info)) {
       p.WaitForExit(10000);
       if (p.HasExited && p.ExitCode == 0) return true;
-      Log.Agent("schtasks /Run " + NameOf(a) + " lỗi: " + p.StandardError.ReadToEnd().Trim());
+      Log.Agent("schtasks /Run " + name + " lỗi: " + p.StandardError.ReadToEnd().Trim());
       return false;
     }
   }
@@ -385,13 +395,22 @@ static class DeckActions {
     }
   }
 
+  // Thư mục làm việc của lệnh chạy chương trình: ô "Thư mục làm việc", để trống thì thư mục người dùng (C:\Users\<tên>),
+  // như khi mở PowerShell hay CMD từ menu Start; không phải thư mục của agent (pc-agent\bin)
+  public static string WorkingDir(DeckAction a) {
+    if (!string.IsNullOrWhiteSpace(a.Dir)) {
+      string dir = Environment.ExpandEnvironmentVariables(a.Dir.Trim());
+      if (Directory.Exists(dir)) return dir;
+    }
+    return Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+  }
+
   static void RunProgram(DeckAction a) {
     if (string.IsNullOrWhiteSpace(a.Path)) throw new InvalidOperationException(I18n.T("action.no_program"));
     if (a.Admin && AdminTasks.Run(a)) return;
     var info = new ProcessStartInfo(Environment.ExpandEnvironmentVariables(a.Path)) {
-      Arguments = a.Args ?? "", UseShellExecute = true,
+      Arguments = a.Args ?? "", UseShellExecute = true, WorkingDirectory = WorkingDir(a),
     };
-    if (!string.IsNullOrWhiteSpace(a.Dir)) info.WorkingDirectory = Environment.ExpandEnvironmentVariables(a.Dir);
     if (a.Admin) info.Verb = "runas";  // chưa đăng ký tác vụ: Windows hỏi UAC
     try {
       Process.Start(info);
