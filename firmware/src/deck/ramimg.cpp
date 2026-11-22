@@ -1,7 +1,3 @@
-// Xem ramimg.h.
-//
-// Ảnh mới luôn nhận vào một bộ đệm riêng ("đang nhận"); nhận đủ thì tráo với bộ đệm của ô. Ảnh đang hiện trên phím
-// không bao giờ bị ghi dở. Bộ nhớ: RAMIMG_SLOTS + 1 bộ đệm 10 KB, cấp phát dần khi cần.
 #include "ramimg.h"
 
 #include <Arduino.h>
@@ -14,7 +10,7 @@ namespace {
 
 struct Slot {
   int16_t page = -1, key = -1;
-  uint8_t *pixels = nullptr;  // ảnh đang dùng (ready)
+  uint8_t *pixels = nullptr;
   bool ready = false;
   uint32_t used_ms = 0;
   lv_image_dsc_t dsc;
@@ -22,7 +18,7 @@ struct Slot {
 
 Slot slots[RAMIMG_SLOTS];
 
-uint8_t *incoming = nullptr;  // ảnh đang nhận
+uint8_t *incoming = nullptr;
 int16_t in_page = -1, in_key = -1;
 uint32_t in_filled = 0;
 int16_t evicted_page = -1, evicted_key = -1;
@@ -34,7 +30,6 @@ Slot *find(uint8_t page, uint8_t key) {
   return nullptr;
 }
 
-// Ô cho (trang, phím): ô cũ của nó, ô trống, hay ô dùng lâu nhất
 Slot *take(uint8_t page, uint8_t key) {
   Slot *s = find(page, key);
   if (s) return s;
@@ -58,7 +53,7 @@ void make_dsc(Slot &s) {
   d.data = s.pixels;
 }
 
-}  // namespace
+}
 
 int rle_decode(const uint8_t *in, size_t in_len, uint8_t *out, size_t out_max) {
   size_t i = 0, o = 0;
@@ -101,11 +96,11 @@ bool ramimg_write(uint8_t page, uint8_t key, uint32_t offset, const uint8_t *dat
   if (in_filled < STORE_IMG_BYTES) return true;
 
   Slot *s = take(page, key);
-  if (s->page >= 0 && (s->page != page || s->key != key)) {  // lấy ô của phím khác: phím đó phải vẽ lại ảnh gốc
+  if (s->page >= 0 && (s->page != page || s->key != key)) {
     evicted_page = s->page;
     evicted_key = s->key;
   }
-  uint8_t *old = s->pixels;  // bộ đệm cũ của ô thành bộ "đang nhận" lần sau
+  uint8_t *old = s->pixels;
   s->pixels = incoming;
   incoming = old;
   s->page = page;
@@ -130,7 +125,7 @@ void ramimg_clear(uint8_t page, uint8_t key) {
   Slot *s = find(page, key);
   if (!s) return;
   s->page = s->key = -1;
-  s->ready = false;  // giữ bộ đệm để dùng lại
+  s->ready = false;
 }
 
 bool ramimg_take_evicted(uint8_t *page, uint8_t *key) {

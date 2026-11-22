@@ -1,4 +1,3 @@
-// Xem deck.h.
 #include "deck.h"
 
 #include <Arduino.h>
@@ -16,13 +15,12 @@
 
 namespace {
 
-// ---------- bố cục (px) ----------
 constexpr int32_t KEY = 72, GAP = 6, GRID_X = 7, GRID_Y = 6, RADIUS = 12;
 constexpr int32_t BAR_X = 7, BAR_Y = 168, BAR_W = 306, BAR_H = 66, ARROW_W = 26;
-constexpr int32_t STATS_W = 54;                            // chỗ dành cho cột CPU/RAM (nhãn tự rộng theo chữ)
-constexpr int32_t ROW_W = BAR_W - 2 * ARROW_W - STATS_W - 6;  // hàng giữa: giờ + hai dòng chữ
+constexpr int32_t STATS_W = 54;
+constexpr int32_t ROW_W = BAR_W - 2 * ARROW_W - STATS_W - 6;
 constexpr int PAGE_DOTS = 8;
-constexpr lv_opa_t OFFLINE_OPA = 110;    // phím khi chưa nối PC: vẫn nhìn ra, rõ là chưa dùng được
+constexpr lv_opa_t OFFLINE_OPA = 110;
 constexpr uint32_t BADGE_MS = 1200;
 
 DeckProfile profile;
@@ -30,14 +28,14 @@ DeckInfo info;
 
 struct KeyView {
   lv_obj_t *btn, *icon, *title, *badge;
-  lv_obj_t *ring;  // viền kết quả: lớp con bo góc 12 (phím có ảnh vẽ không bo góc)
-  uint32_t badge_until;  // 0: không hiện; UINT32_MAX: giữ luôn
-  uint32_t ring_until;   // viền trắng đang chờ PC trả lời tới lúc này (0: không chờ)
+  lv_obj_t *ring;
+  uint32_t badge_until;
+  uint32_t ring_until;
 };
 
 struct BarView {
   lv_obj_t *box, *prev, *next, *prev_icon, *next_icon, *row, *dot, *unlink, *clock, *title, *sub, *stats;
-  lv_obj_t *track, *fill;  // vạch tiến độ bài đang phát (dưới hai dòng chữ)
+  lv_obj_t *track, *fill;
   lv_obj_t *pages[PAGE_DOTS];
 };
 
@@ -49,13 +47,10 @@ struct ScreenView {
 };
 
 ScreenView views[2];
-int current = 0;       // views[current] đang hiện
-bool gestured = false;  // lần chạm này đã thành cử chỉ vuốt: không tính là bấm phím
-int pressed_slot = -1;  // phím lệnh đang đè, đã báo "xuống" cho PC (chờ báo "lên")
+int current = 0;
+bool gestured = false;
+int pressed_slot = -1;
 
-// ---------- style dùng chung ----------
-// Như CYD-EEZ (src/ui/styles.cpp): chạm xuống phủ trắng ~10 % trong 50 ms, nhả tay nhạt dần 260 ms; độ thu và lò xo
-// khi nhả là motion_press_feedback.
 const lv_style_prop_t HIGHLIGHT_PROPS[] = {LV_STYLE_RECOLOR_OPA, LV_STYLE_RECOLOR, LV_STYLE_PROP_INV};
 lv_style_transition_dsc_t press_transition, release_transition;
 lv_style_t st_screen, st_key, st_pressed, st_bar, st_ghost, st_title, st_icon, st_badge, st_dot;
@@ -64,7 +59,6 @@ lv_style_t st_track, st_fill;
 
 lv_color_t col(Pal p) { return lv_color_hex(theme_color(p)); }
 
-// Ghép cờ đối tượng trong C++ (A | B của hai giá trị enum ra int)
 constexpr lv_obj_flag_t ui_flags(uint32_t value) { return static_cast<lv_obj_flag_t>(value); }
 
 void styles_init() {
@@ -91,7 +85,6 @@ void styles_init() {
   lv_style_set_bg_color(&st_bar, col(Pal::bar));
   lv_style_set_radius(&st_bar, RADIUS);
 
-  // nút trong suốt (mũi tên lật trang): chỉ thấy lớp phủ khi nhấn
   lv_style_init(&st_ghost);
   lv_style_set_radius(&st_ghost, RADIUS);
   lv_style_set_transition(&st_ghost, &release_transition);
@@ -106,7 +99,6 @@ void styles_init() {
   lv_style_set_text_color(&st_icon, col(Pal::text2));
   lv_style_set_text_align(&st_icon, LV_TEXT_ALIGN_CENTER);
 
-  // dấu ✓/⚠: nhãn icon có nền tròn (một đối tượng), màu nền đặt lúc hiện
   lv_style_init(&st_badge);
   lv_style_set_text_font(&st_badge, &ui_font_ico_18);
   lv_style_set_text_color(&st_badge, col(Pal::badge_bg));
@@ -136,7 +128,6 @@ void styles_init() {
   lv_style_set_text_color(&st_stats, col(Pal::text2));
   lv_style_set_text_align(&st_stats, LV_TEXT_ALIGN_RIGHT);
 
-  // hàng giữa thanh tin: [chấm REC] [giờ] [cột chữ]
   lv_style_init(&st_row);
   lv_style_set_layout(&st_row, LV_LAYOUT_FLEX);
   lv_style_set_flex_flow(&st_row, LV_FLEX_FLOW_ROW);
@@ -184,15 +175,12 @@ lv_obj_t *label(lv_obj_t *parent, const lv_style_t *style) {
   return obj;
 }
 
-// Đổi chữ chỉ khi khác (lv_label_set_text luôn xin vẽ lại)
 void set_text(lv_obj_t *obj, const char *text) {
   const char *now = lv_label_get_text(obj);
   if (now && strcmp(now, text) == 0) return;
   lv_label_set_text(obj, text);
 }
 
-// Các hàm đặt thuộc tính chỉ khi giá trị khác: LVGL vẽ lại đối tượng mỗi lần đặt style riêng, kể cả cùng giá trị.
-// Trước 19/11/2026 mỗi gói thanh tin (mỗi giây) đặt lại độ mờ của 8 phím, nên bo vẽ lại cả lưới phím mỗi giây.
 void show(lv_obj_t *obj, bool visible) {
   if (lv_obj_has_flag(obj, LV_OBJ_FLAG_HIDDEN) != visible) return;
   if (visible) lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
@@ -221,13 +209,10 @@ void set_x(lv_obj_t *obj, int32_t x) {
   if (lv_obj_get_style_x(obj, LV_PART_MAIN) != x) lv_obj_set_x(obj, x);
 }
 
-// ---------- điều hướng ----------
-
 const DeckPage *page_at(int index) {
   return index >= 0 && index < profile.page_count ? &profile.pages[index] : nullptr;
 }
 
-// Trang chính chứa `index` (thư mục lồng nhau: đi ngược lên tới trang chính)
 int top_of(int index) {
   for (int guard = 0; guard < DECK_MAX_PAGES; guard++) {
     const DeckPage *page = page_at(index);
@@ -237,7 +222,6 @@ int top_of(int index) {
   return index;
 }
 
-// Độ sâu trong cây thư mục (trang chính là 0), để biết đi tới trang kia là "tiến vào" hay "lùi ra"
 int depth_of(int index) {
   int depth = 0;
   for (int guard = 0; guard < DECK_MAX_PAGES; guard++) {
@@ -266,49 +250,42 @@ void go(int index, bool animate) {
   const int from = now.page;
   bool back;
   if (depth_of(index) != depth_of(from)) {
-    back = depth_of(index) < depth_of(from);  // vào thư mục: tiến; quay ra: lùi
+    back = depth_of(index) < depth_of(from);
   } else {
-    back = index < from;  // lật trang chính: trang sau vào từ phải
+    back = index < from;
   }
   const int next = 1 - current;
   bind(views[next], index);
   current = next;
   motion_push(views[next].screen, back, page_shown);
-  link_page(index);  // PC: willAppear/willDisappear cho phím plugin, gửi ảnh RAM của trang mới
+  link_page(index);
 }
 
 void flip(int step) {
   const int page = views[current].page;
-  if (page < 0 || profile.pages[page].parent >= 0) return;  // trong thư mục: không lật trang
+  if (page < 0 || profile.pages[page].parent >= 0) return;
   const int to = page + step;
   if (to < 0 || to >= profile.top_pages) return;
   go(to, true);
 }
 
-// ---------- gợn sóng khi chạm ----------
-// Vòng tròn trắng lan ra từ chỗ ngón tay chạm rồi mờ đi, như nút Material. Tâm vòng trôi dần từ chỗ chạm về giữa phím
-// trong lúc vòng lớn lên, tới cuối là hình tròn nội tiếp phím (đường kính 72). Cả tâm lẫn bán kính đi tuyến tính theo
-// cùng một tham số, mà hai đầu đều nằm gọn trong phím bo góc 12, nên vòng không bao giờ chạm góc bo: không cần
-// clip_corner. (Bản đầu bật clip_corner, LVGL vẽ con của phím qua lớp ARGB8888 mỗi khung: đo 18/11/2026 chạm phím chỉ
-// được 10–13 khung/giây, xem src/deck/perf.cpp.) Một vòng dùng chung cho cả hai màn: mỗi lúc chỉ một ngón tay.
-
-constexpr int32_t RIPPLE_R0 = 7, RIPPLE_R1 = KEY / 2;  // bán kính đầu và cuối (px)
-constexpr int32_t RIPPLE_MARGIN = 14;                  // tâm lúc đầu cách mép phím ít nhất chừng này
+constexpr int32_t RIPPLE_R0 = 7, RIPPLE_R1 = KEY / 2;
+constexpr int32_t RIPPLE_MARGIN = 14;
 constexpr uint32_t RIPPLE_MS = 420;
 constexpr lv_opa_t RIPPLE_OPA = 80;
 
 struct Ripple {
   lv_obj_t *obj = nullptr, *key = nullptr;
-  int32_t cx = 0, cy = 0;  // chỗ chạm (đã kéo vào trong RIPPLE_MARGIN)
+  int32_t cx = 0, cy = 0;
 } ripple;
 
-void ripple_step(void *, int32_t v) {  // v: 0..1000 (đã qua đường cong chậm dần)
+void ripple_step(void *, int32_t v) {
   const int32_t r = RIPPLE_R0 + (RIPPLE_R1 - RIPPLE_R0) * v / 1000;
   const int32_t x = ripple.cx + (KEY / 2 - ripple.cx) * v / 1000;
   const int32_t y = ripple.cy + (KEY / 2 - ripple.cy) * v / 1000;
   lv_obj_set_pos(ripple.obj, x - r, y - r);
   lv_obj_set_size(ripple.obj, 2 * r, 2 * r);
-  const int32_t left = 1000 - v;  // rõ ngay từ đầu, mờ nhanh dần về cuối
+  const int32_t left = 1000 - v;
   lv_obj_set_style_bg_opa(ripple.obj, (lv_opa_t)(RIPPLE_OPA * left / 1000 * left / 1000), 0);
 }
 
@@ -331,7 +308,6 @@ void ripple_start(lv_obj_t *key) {
   ripple_begin(key, point.x - area.x1, point.y - area.y1);
 }
 
-// cx, cy: chỗ chạm tính từ góc trên trái của phím
 void ripple_begin(lv_obj_t *key, int32_t cx, int32_t cy) {
   ripple_stop();
   if (!ripple.obj) {
@@ -343,7 +319,7 @@ void ripple_begin(lv_obj_t *key, int32_t cx, int32_t cy) {
   } else if (lv_obj_get_parent(ripple.obj) != key) {
     lv_obj_set_parent(ripple.obj, key);
   }
-  lv_obj_move_to_index(ripple.obj, 0);  // trên ảnh, dưới nhãn và dấu ✓
+  lv_obj_move_to_index(ripple.obj, 0);
   lv_obj_remove_flag(ripple.obj, LV_OBJ_FLAG_HIDDEN);
 
   ripple.cx = LV_CLAMP(RIPPLE_MARGIN, cx, KEY - RIPPLE_MARGIN);
@@ -361,10 +337,6 @@ void ripple_begin(lv_obj_t *key, int32_t cx, int32_t cy) {
   lv_anim_set_completed_cb(&a, ripple_done);
   lv_anim_start(&a);
 }
-
-// ---------- viền kết quả ----------
-// Bấm phím lệnh: viền trắng 2 px nhịp sáng/mờ trong lúc chờ PC. PC báo xong: viền xanh lá rồi tắt dần; lỗi hay quá
-// 3 giây không trả lời: viền cam. Viền vẽ đè lên ảnh, theo đúng góc bo của phím.
 
 constexpr uint32_t RING_TIMEOUT_MS = 3000;
 
@@ -415,14 +387,10 @@ void ring_clear(KeyView &k) {
   lv_obj_add_flag(k.ring, LV_OBJ_FLAG_HIDDEN);
 }
 
-// ---------- sự kiện ----------
-
 void on_pressed(lv_event_t *) { gestured = false; }
 
 bool is_command(KeyKind kind) { return kind == KeyKind::Action || kind == KeyKind::Toggle || kind == KeyKind::Plugin; }
 
-// Nhả phím lệnh đang đè: báo "lên" (hay "huỷ" khi vuốt, kéo ra ngoài) cho PC. PC tự tính chạm hay giữ 0,5 s
-// (lệnh thường) và gửi keyDown/keyUp cho plugin.
 void key_release(bool cancelled) {
   if (pressed_slot < 0) return;
   const int slot = pressed_slot;
@@ -442,7 +410,7 @@ void on_key_pressed(lv_event_t *event) {
   const int page = views[current].page;
   const DeckPage *p = page_at(page);
   if (!p || !is_command(p->keys[slot].kind) || !info.online) return;
-  key_release(true);  // phòng khi lần trước chưa báo nhả
+  key_release(true);
   pressed_slot = slot;
   link_key_down(page, slot);
 }
@@ -453,7 +421,6 @@ void on_key_released(lv_event_t *event) {
     key_release(gestured || motion_pushing());
     return;
   }
-  // chưa nối PC: phím lệnh không làm gì, báo cho người dùng
   const DeckPage *p = page_at(views[current].page);
   if (!gestured && !motion_pushing() && p && is_command(p->keys[slot].kind) && !info.online) {
     motion_island_show(tr(Str::NoPc), ICON_P_UNLINK, theme().orange);
@@ -471,11 +438,10 @@ void on_gesture(lv_event_t *) {
   if (dir != LV_DIR_LEFT && dir != LV_DIR_RIGHT) return;
   gestured = true;
   key_release(true);
-  lv_indev_wait_release(lv_indev_active());  // phím đang bị đè không nhận "bấm" khi nhả tay
+  lv_indev_wait_release(lv_indev_active());
   flip(dir == LV_DIR_LEFT ? 1 : -1);
 }
 
-// Phím thư mục và phím ‹: bo tự xử lý, không qua PC
 void on_key(lv_event_t *event) {
   if (gestured || motion_pushing()) return;
   const int slot = (int)(intptr_t)lv_event_get_user_data(event);
@@ -489,30 +455,24 @@ void on_key(lv_event_t *event) {
 void on_prev(lv_event_t *) { flip(-1); }
 void on_next(lv_event_t *) { flip(1); }
 
-// ---------- dựng ----------
-
 void build_key(ScreenView &view, int slot) {
   KeyView &k = view.keys[slot];
   k.btn = box(view.screen);
-  // Không có lớp phủ khi nhấn (recolor) như nút của CYD-EEZ: phủ màu lên ảnh làm LVGL vẽ từng điểm ảnh một (rất chậm),
-  // và phủ cả góc đen vẽ sẵn trong ảnh. Phản hồi khi chạm là gợn sóng + lún.
   lv_obj_add_style(k.btn, &st_key, 0);
   lv_obj_set_pos(k.btn, GRID_X + (slot % 4) * (KEY + GAP), GRID_Y + (slot / 4) * (KEY + GAP));
   lv_obj_set_size(k.btn, KEY, KEY);
   lv_obj_add_flag(k.btn, LV_OBJ_FLAG_CLICKABLE);
-  motion_press_feedback(k.btn, 0.92f);  // lún sâu hơn nút của CYD-EEZ (0,96): phím là thứ duy nhất để bấm
+  motion_press_feedback(k.btn, 0.92f);
   lv_obj_add_event_cb(k.btn, on_key_pressed, LV_EVENT_PRESSED, (void *)(intptr_t)slot);
   lv_obj_add_event_cb(k.btn, on_key_released, LV_EVENT_RELEASED, (void *)(intptr_t)slot);
   lv_obj_add_event_cb(k.btn, on_key_lost, LV_EVENT_PRESS_LOST, (void *)(intptr_t)slot);
   lv_obj_add_event_cb(k.btn, on_key, LV_EVENT_SHORT_CLICKED, (void *)(intptr_t)slot);
 
-  // icon do bo tự vẽ (phím ‹ của thư mục); phím có ảnh thì ẩn
   k.icon = label(k.btn, &st_icon);
   lv_obj_set_size(k.icon, KEY, 48);
   lv_obj_set_pos(k.icon, 0, 4);
   lv_obj_add_flag(k.icon, LV_OBJ_FLAG_HIDDEN);
 
-  // nhãn nằm trên dải tối mà ảnh đã vẽ sẵn ở đáy phím
   k.title = label(k.btn, &st_title);
   lv_label_set_long_mode(k.title, LV_LABEL_LONG_MODE_DOTS);
   lv_obj_set_size(k.title, KEY - 6, 20);
@@ -570,7 +530,6 @@ void build_bar(ScreenView &view) {
   lv_obj_add_style(b.dot, &st_dot, 0);
   lv_obj_set_size(b.dot, 10, 10);
 
-  // chưa nối PC: icon mất nối thay cho giờ
   b.unlink = label(row, &st_unlink);
   lv_label_set_text_static(b.unlink, ICON_P_UNLINK);
 
@@ -589,7 +548,6 @@ void build_bar(ScreenView &view) {
   lv_label_set_long_mode(b.sub, LV_LABEL_LONG_MODE_DOTS);
   lv_obj_set_size(b.sub, lv_pct(100), 20);
 
-  // vạch tiến độ 2 px dưới dòng "nghệ sĩ · app": rãnh mờ, phần đã phát màu nhấn
   b.track = box(column);
   lv_obj_add_style(b.track, &st_track, 0);
   lv_obj_set_size(b.track, lv_pct(100), 2);
@@ -601,10 +559,9 @@ void build_bar(ScreenView &view) {
 
   b.stats = label(b.box, &st_stats);
   lv_label_set_recolor(b.stats, true);
-  lv_obj_set_size(b.stats, LV_SIZE_CONTENT, 40);  // không bao giờ xuống dòng, canh phải sát mũi tên
+  lv_obj_set_size(b.stats, LV_SIZE_CONTENT, 40);
   lv_obj_align(b.stats, LV_ALIGN_RIGHT_MID, -(ARROW_W + 2), 0);
 
-  // chấm trang ở đáy thanh (trang chính), như Stream Deck Neo
   for (int i = 0; i < PAGE_DOTS; i++) {
     b.pages[i] = box(b.box);
     lv_obj_add_style(b.pages[i], &st_page_dot, 0);
@@ -626,21 +583,17 @@ void build_view(ScreenView &view) {
   view.page = -1;
 }
 
-// ---------- đổ dữ liệu ----------
-
 void bind_key(KeyView &k, const DeckKey &key, int page, int slot) {
   const bool on = key.kind == KeyKind::Toggle && key.on;
-  const lv_image_dsc_t *ram = ramimg_find((uint8_t)page, (uint8_t)slot);  // ảnh plugin đặt lúc chạy
+  const lv_image_dsc_t *ram = ramimg_find((uint8_t)page, (uint8_t)slot);
   const lv_image_dsc_t *normal = ram ? ram : key.image ? key.image : store_find(key.image_hash);
   const lv_image_dsc_t *lit = key.image_on ? key.image_on : store_find(key.image_on_hash);
-  const lv_image_dsc_t *image = on && lit && !ram ? lit : normal;  // ảnh chưa về kho: phím chỉ có nền và nhãn
+  const lv_image_dsc_t *image = on && lit && !ram ? lit : normal;
   const char *title = on && key.title_on[0] ? key.title_on : key.title;
   if (key.live[0]) title = key.live;
 
   const lv_image_dsc_t *shown = key.kind == KeyKind::Back ? nullptr : image;
   lv_obj_set_style_bg_image_src(k.btn, shown, 0);
-  // Ảnh đã có sẵn góc bo (KeyArt.cs): vẽ không bo góc thì LVGL chép thẳng ảnh (nhanh nhất). Bo góc 12 thì mỗi lần vẽ
-  // phải che góc từng dòng, và khi đang lún (transform) còn rơi vào đường vẽ từng điểm ảnh.
   lv_obj_set_style_radius(k.btn, shown ? 0 : RADIUS, 0);
   lv_obj_set_style_bg_color(k.btn, col(key.kind == KeyKind::Empty || key.kind == KeyKind::Back ? Pal::key_back : Pal::key), 0);
   if (key.kind == KeyKind::Empty) {
@@ -675,7 +628,6 @@ void bind_bar(ScreenView &view) {
   text_color(b.prev_icon, can_prev ? Pal::text : Pal::muted);
   text_color(b.next_icon, can_next ? Pal::text : Pal::muted);
 
-  // chấm trang: chỉ ở trang chính và khi có hơn một trang
   const int dots = folder || profile.top_pages < 2 ? 0 : min<int>(profile.top_pages, PAGE_DOTS);
   const int32_t dots_x = (BAR_W - (dots * 4 + (dots - 1) * 5)) / 2;
   for (int i = 0; i < PAGE_DOTS; i++) {
@@ -689,7 +641,7 @@ void bind_bar(ScreenView &view) {
   show(b.unlink, !online);
   show(b.clock, online);
   show(b.stats, online);
-  set_width(b.row, online ? ROW_W : ROW_W + STATS_W + 2);  // không có cột CPU/RAM thì chữ dùng luôn chỗ đó
+  set_width(b.row, online ? ROW_W : ROW_W + STATS_W + 2);
 
   if (!online) {
     show(b.dot, false);
@@ -722,7 +674,6 @@ void bind_bar(ScreenView &view) {
 
   show(b.dot, false);
   set_text(b.clock, info.clock);
-  // Dòng trên: bài đang phát (không có thì tên hồ sơ). Dòng dưới: "nghệ sĩ · app", hay thư mục / tên trang đang mở.
   const bool media = info.media_title[0] != '\0';
   if (folder) {
     snprintf(text, sizeof text, tr(Str::FolderFmt), page->name);
@@ -757,7 +708,7 @@ void bind(ScreenView &view, int index) {
   bind_bar(view);
 }
 
-}  // namespace
+}
 
 DeckProfile &deck_profile() { return profile; }
 DeckInfo &deck_info() { return info; }
@@ -767,7 +718,7 @@ void deck_init() {
   build_view(views[0]);
   build_view(views[1]);
   lv_indev_t *indev = lv_indev_get_next(nullptr);
-  if (indev) lv_indev_set_long_press_time(indev, 500);  // giữ 0,5 s: lệnh phụ của phím
+  if (indev) lv_indev_set_long_press_time(indev, 500);
   Serial.printf("[DECK] Da dung 2 man, heap trong %lu KB\n", (unsigned long)(ESP.getFreeHeap() >> 10));
 }
 
@@ -779,7 +730,7 @@ void deck_tick() {
         lv_obj_add_flag(k.badge, LV_OBJ_FLAG_HIDDEN);
         k.badge_until = 0;
       }
-      if (k.ring_until && (int32_t)(now - k.ring_until) >= 0) {  // PC không trả lời
+      if (k.ring_until && (int32_t)(now - k.ring_until) >= 0) {
         ring_result(k, false);
         Serial.println("[DECK] PC khong tra loi lenh");
       }
@@ -799,7 +750,6 @@ void deck_refresh() {
 }
 
 void deck_refresh_key(int key) {
-  // chỉ ảnh và nhãn: dấu ✓/⚠ và viền đang chạy giữ nguyên (khác deck_refresh)
   ScreenView &view = views[current];
   if (view.page < 0 || key < 0 || key >= DECK_KEYS) return;
   KeyView &k = view.keys[key];
@@ -811,7 +761,6 @@ void deck_refresh_key(int key) {
   const bool on = def.kind == KeyKind::Toggle && def.on;
   const lv_image_dsc_t *image = on && lit && !ram ? lit : normal;
   if (lv_obj_get_style_bg_image_src(k.btn, LV_PART_MAIN) != image) lv_obj_set_style_bg_image_src(k.btn, image, 0);
-  // ảnh RAM vừa đổi nội dung mà giữ nguyên địa chỉ dsc: vẽ lại cho chắc
   if (ram) lv_obj_invalidate(k.btn);
   const int32_t radius = image ? 0 : RADIUS;
   if (lv_obj_get_style_radius(k.btn, LV_PART_MAIN) != radius) lv_obj_set_style_radius(k.btn, radius, 0);
@@ -846,10 +795,9 @@ void deck_profile_switched() {
 }
 
 #if CYD_PERF
-// Bản đo hiệu năng (perf.cpp): bấm, viền... một phím của trang đang hiện mà không cần ngón tay
 lv_obj_t *deck_demo_key(int slot) { return views[current].keys[slot].btn; }
 void deck_demo_ripple(int slot, int32_t x, int32_t y) { ripple_begin(views[current].keys[slot].btn, x, y); }
-void deck_demo_ring(int slot, int mode) {  // 0: chờ PC, 1: xong, 2: lỗi
+void deck_demo_ring(int slot, int mode) {
   KeyView &k = views[current].keys[slot];
   if (mode == 0) ring_wait(k);
   else ring_result(k, mode == 1);

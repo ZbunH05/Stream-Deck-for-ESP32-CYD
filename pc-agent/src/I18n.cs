@@ -1,6 +1,3 @@
-// Chữ của agent bằng hai ngôn ngữ (Tiếng Việt, English): trạng thái, thông báo lỗi trả về trang cài đặt, menu khay.
-// Ngôn ngữ lưu trong deck.json (DeckConfigData.Lang); lần đầu lấy theo ngôn ngữ hiển thị của Windows. Trang cài đặt có
-// bảng chuỗi riêng (web\index.html), bo có bảng riêng (firmware/src/deck/lang.cpp).
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -15,7 +12,6 @@ static class I18n {
   }
 
   static readonly Dictionary<string, string[]> S = new Dictionary<string, string[]> {
-    // { khoá, { Việt, English } }
     {"sync.layout", new[] {"Đang gửi bộ phím xuống bo…", "Sending the layout to the board…"}},
     {"sync.layout_failed", new[] {"Bo không nhận bộ phím", "The board rejected the layout"}},
     {"sync.images", new[] {"Đang gửi ảnh {0}/{1}…", "Sending image {0}/{1}…"}},
@@ -91,4 +87,4 @@ static class I18n {
   }
 }
 
-}  // namespace CydAgent
+}

@@ -1,8 +1,3 @@
-// Đo hiệu năng hiệu ứng của Deck (build -DCYD_PERF=1 -DCYD_PERF_DEMO=4). Sau 5 giây bo tự chạy từng cảnh trên phím 2
-// của trang đang hiện, đo số khung LVGL vẽ và thời gian vẽ mỗi khung, rồi in:
-//   [PERF] <cảnh>: N khung / T ms = F khung/giây | vẽ tb A ms, max B ms | đẩy C điểm ảnh/khung
-// Khung = một lần LVGL vẽ (RENDER_START → RENDER_READY). "khung/giây" là số khung chia thời gian cảnh: hoạt cảnh mượt
-// cần ~60 (LV_DEF_REFR_PERIOD 16 ms). Cảnh lặp 3 lượt. Không cần PC, không cần chạm.
 #include "perf.h"
 
 #if CYD_PERF && defined(CYD_PERF_DEMO) && CYD_PERF_DEMO == 4
@@ -25,7 +20,7 @@ uint32_t now_us() { return (uint32_t)esp_timer_get_time(); }
 struct Meter {
   const char *name = nullptr;
   uint32_t t0 = 0, frames = 0, sum_us = 0, max_us = 0, px = 0, start_us = 0;
-  uint32_t last_start = 0, gap_sum = 0, gaps = 0, gap_max = 0;  // khoảng giữa hai khung liền nhau (< 100 ms)
+  uint32_t last_start = 0, gap_sum = 0, gaps = 0, gap_max = 0;
   uint32_t frame_px = 0;
 } m;
 
@@ -77,7 +72,6 @@ void end() {
   m.name = nullptr;
 }
 
-// Kịch bản: mỗi bước {lúc bắt đầu tính từ đầu lượt (ms), việc}
 enum class Op : uint8_t { Begin, End, Press, Release, RingWait, RingOk, PageNext, PageBack, Info };
 struct Step {
   uint32_t at;
@@ -103,8 +97,6 @@ const Step STEPS[] = {
     {6100, Op::PageNext, nullptr},
     {6800, Op::End, nullptr},
     {7000, Op::PageBack, nullptr},
-    // Đứng yên, PC gửi thanh tin mỗi giây (giờ, CPU, RAM, tiến độ bài hát đổi): chỉ nhãn số và vạch tiến độ được vẽ
-    // lại, không phải 8 phím (trước 19/11/2026 mỗi gói thanh tin làm bo vẽ lại cả lưới phím)
     {7600, Op::Begin, "dung yen, thanh tin moi giay (5 goi)"},
     {7600, Op::Info, nullptr},
     {8600, Op::Info, nullptr},
@@ -121,7 +113,7 @@ int round_no = 0;
 uint32_t round_t0 = 0;
 bool attached = false;
 
-}  // namespace
+}
 
 void perf_loop() {
   if (!attached) {

@@ -1,14 +1,3 @@
-// Sinh ảnh cho bộ phím mẫu (src/deck/sample.cpp): src/deck/sample_images.c (mảng RGB565 đảo byte cho LVGL) và ảnh
-// xem trước tools\bin\preview\*.png (đúng màu sau RGB565). Bo chỉ dùng bộ phím mẫu khi chưa nhận bộ phím từ CydAgent.
-//
-// Icon: Material Symbols Rounded của Google (Apache License 2.0), không dùng logo hay font của hãng khác, để ảnh mẫu
-// phát hành được cùng mã nguồn. Font không nằm trong repo (15 MB); tải hai file từ
-//   https://github.com/google/material-design-icons/tree/master/variablefont
-//   MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf và .codepoints
-// rồi chạy: tools\make_sample_images.cmd <file .ttf> <file .codepoints>
-// GDI+ đọc kiểu mặc định của font biến thiên (nét viền, đậm 400), đúng kiểu cần.
-//
-// Ảnh phím thật của người dùng do CydAgent vẽ trên PC bằng cùng KeyArt.cs.
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -19,8 +8,8 @@ using System.Text;
 
 static class MakeSampleImages {
     class Spec {
-        public string Name;   // tên trong C: deck_img_<Name>
-        public string Icon;   // tên icon Material Symbols
+        public string Name;
+        public string Icon;
         public Color Background;
         public bool Folder, Ring;
     }
@@ -46,7 +35,6 @@ static class MakeSampleImages {
 
         const int Gray = 0x2B2C33, Purple = 0x4A3A8C, Red = 0xB3261E, Green = 0x2E7D4F, Media = 0x1A9E4B;
         var specs = new List<Spec> {
-            // trang 1: làm việc và nhạc
             S("terminal", "terminal", 0x012456),
             S("web", "language", 0x0E6E8C),
             S("play", "play_arrow", Media),
@@ -57,7 +45,6 @@ static class MakeSampleImages {
             S("headphones", "headphones", 0x3B4BC8),
             S("obs", "podcasts", Purple),
             S("lock", "lock", Gray),
-            // trang 2: công cụ
             S("folder", "folder", 0x8A5A00),
             S("docs", "description", 0x1B4F9C),
             S("perf", "monitoring", 0x2E6B3F),
@@ -67,7 +54,6 @@ static class MakeSampleImages {
             S("vol_up", "volume_up", Gray),
             S("mute", "volume_mute", Gray),
             S("muted", "volume_off", Red),
-            // thư mục OBS
             S("scene_screen", "desktop_windows", Purple),
             S("scene_camera", "videocam", Purple),
             S("scene_split", "grid_view", Purple),
@@ -81,7 +67,6 @@ static class MakeSampleImages {
         foreach (var s in specs) {
             if (s.Name == "obs") s.Folder = true;
         }
-        // cảnh OBS đang phát: cùng ảnh, thêm viền xanh lá
         foreach (var name in new[] { "scene_screen", "scene_camera", "scene_split" }) {
             var basis = specs.Find(s => s.Name == name);
             specs.Add(new Spec { Name = name + "_on", Icon = basis.Icon, Background = basis.Background, Ring = true });
@@ -91,10 +76,7 @@ static class MakeSampleImages {
         Directory.CreateDirectory(previewDir);
         var c = new StringBuilder();
         var h = new StringBuilder();
-        c.AppendLine("// Sinh bởi tools/make_sample_images.cs, đừng sửa tay. Ảnh phím mẫu 72×72 RGB565 đảo byte.");
-        c.AppendLine("// Icon: Material Symbols Rounded, Google, Apache License 2.0 (assets/fonts/MaterialSymbols-LICENSE.txt).");
         c.AppendLine("#include \"sample_images.h\"");
-        h.AppendLine("// Sinh bởi tools/make_sample_images.cs, đừng sửa tay.");
         h.AppendLine("#pragma once");
         h.AppendLine("#include <lvgl.h>");
         h.AppendLine("#ifdef __cplusplus");

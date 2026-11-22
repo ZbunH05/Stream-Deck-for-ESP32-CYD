@@ -1,10 +1,3 @@
-// Vẽ ảnh một phím 72×72 cho CYD Deck: nền phím bo góc 12 trên nền đen của màn, icon ở giữa phía trên, dải tối ở đáy
-// cho nhãn (bo vẽ nhãn bằng LVGL), tam giác nhỏ ở góc nếu là thư mục. Rồi đổi sang RGB565 đảo byte, đúng định dạng
-// LVGL vẽ thẳng lên màn (LV_COLOR_FORMAT_RGB565_SWAPPED) mà không cần chuyển đổi nào.
-//
-// Dùng chung cho CydAgent (ảnh phím người dùng đặt trong trang cài đặt, DeckConfig.cs) và
-// ..\..\firmware\tools\make_sample_images.cs (ảnh mẫu nhúng vào firmware).
-// C# 5 (csc.exe của .NET Framework 4 có sẵn trong Windows): không có $"", ?., nameof.
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -14,7 +7,7 @@ using System.Runtime.InteropServices;
 
 public static class KeyArt {
     public const int Size = 72, Radius = 12;
-    public const int StripHeight = 24;  // dải tối ở đáy, bo vẽ nhãn vn_12b (dòng 20 px) vào đây
+    public const int StripHeight = 24;
 
     public static GraphicsPath RoundRect(RectangleF r, float radius) {
         var path = new GraphicsPath();
@@ -27,7 +20,6 @@ public static class KeyArt {
         return path;
     }
 
-    // Ảnh nền phím: hình chữ nhật bo góc tô `background`, phần ngoài góc bo là màu nền màn (đen)
     public static Bitmap Begin(Color background, out Graphics g) {
         var bmp = new Bitmap(Size, Size, PixelFormat.Format32bppArgb);
         g = Graphics.FromImage(bmp);
@@ -43,12 +35,10 @@ public static class KeyArt {
         return bmp;
     }
 
-    // Icon chữ của font Segoe Fluent Icons / Segoe MDL2 Assets, trắng, căn giữa phần trên (chừa dải nhãn)
     public static void Glyph(Graphics g, string fontName, char code, float px, Color color, bool withTitle) {
         using (var family = new FontFamily(fontName)) Glyph(g, family, code, px, color, withTitle);
     }
 
-    // Như trên, với font nạp từ file (PrivateFontCollection), ví dụ Material Symbols cho ảnh phím mẫu
     public static void Glyph(Graphics g, FontFamily family, char code, float px, Color color, bool withTitle) {
         using (var font = new Font(family, px, FontStyle.Regular, GraphicsUnit.Pixel))
         using (var brush = new SolidBrush(color))
@@ -60,13 +50,11 @@ public static class KeyArt {
         }
     }
 
-    // Icon app (ảnh có kênh alpha), cỡ `px`, căn như Glyph
     public static void Picture(Graphics g, Image icon, float px, bool withTitle) {
         float centerY = withTitle ? (Size - StripHeight) / 2f + 2 : Size / 2f;
         g.DrawImage(icon, new RectangleF((Size - px) / 2f, centerY - px / 2f, px, px));
     }
 
-    // Ảnh người dùng chọn phủ kín phím (cắt bớt cạnh dài cho vừa hình vuông), giữ góc bo, như ảnh phím của Elgato
     public static void Cover(Graphics g, Image image) {
         float scale = Math.Max((float)Size / image.Width, (float)Size / image.Height);
         float w = image.Width * scale, h = image.Height * scale;
@@ -78,7 +66,6 @@ public static class KeyArt {
         }
     }
 
-    // Vòng viền trong (cảnh OBS đang phát...)
     public static void Ring(Graphics g, Color color, float width) {
         float inset = width / 2f;
         using (var path = RoundRect(new RectangleF(inset, inset, Size - width, Size - width), Radius - inset))
@@ -87,7 +74,6 @@ public static class KeyArt {
         }
     }
 
-    // Dải tối ở đáy cho nhãn: từ trong suốt lên đen 55 %, cắt theo góc bo của phím
     public static void TitleStrip(Graphics g) {
         var area = new RectangleF(0, Size - StripHeight - 6, Size, StripHeight + 6);
         using (var clip = RoundRect(new RectangleF(0, 0, Size, Size), Radius))
@@ -99,14 +85,12 @@ public static class KeyArt {
         }
     }
 
-    // Tam giác nhỏ ở góc trên phải: phím mở thư mục (giống Elgato)
     public static void FolderMark(Graphics g) {
         using (var brush = new SolidBrush(Color.FromArgb(190, 255, 255, 255))) {
             g.FillPolygon(brush, new[] { new PointF(Size - 18, 6), new PointF(Size - 6, 6), new PointF(Size - 6, 18) });
         }
     }
 
-    // RGB565 đảo byte (byte cao trước), làm tròn từng kênh
     public static byte[] ToRgb565Swapped(Bitmap bmp) {
         var data = bmp.LockBits(new Rectangle(0, 0, Size, Size), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
         var src = new byte[data.Stride * Size];
@@ -127,7 +111,6 @@ public static class KeyArt {
         return dst;
     }
 
-    // Xem trước đúng màu sẽ lên màn (sau RGB565)
     public static Bitmap FromRgb565Swapped(byte[] px) {
         var bmp = new Bitmap(Size, Size, PixelFormat.Format32bppArgb);
         for (int y = 0; y < Size; y++) {
@@ -140,7 +123,6 @@ public static class KeyArt {
         return bmp;
     }
 
-    // ---------- icon của file .exe (cỡ lớn, có alpha) qua IShellItemImageFactory, như Explorer ----------
     [ComImport, Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IShellItemImageFactory {
         [PreserveSig] int GetImage(NativeSize size, int flags, out IntPtr bitmap);
@@ -166,7 +148,6 @@ public static class KeyArt {
         Marshal.ReleaseComObject(factory);
         if (hr != 0) throw new Exception(string.Format("Khong lay duoc icon cua {0} (0x{1:X8})", path, hr));
         try {
-            // FromHbitmap bỏ kênh alpha khi đọc; dữ liệu 32 bit vẫn còn alpha (premultiplied) nên đọc lại theo PArgb
             using (var raw = Image.FromHbitmap(hbitmap)) {
                 var data = raw.LockBits(new Rectangle(0, 0, raw.Width, raw.Height), ImageLockMode.ReadOnly, raw.PixelFormat);
                 try {
@@ -182,9 +163,6 @@ public static class KeyArt {
         }
     }
 
-    // Font icon có ký tự này không (Segoe Fluent Icons có trên Windows 11, Segoe MDL2 Assets trên Windows 10)
-    // Hỏi GDI (GetGlyphIndicesW): trước 19/11/2026 dùng GlyphTypeface của WPF, nạp cả PresentationCore (~30 MB RAM) chỉ
-    // để kiểm tra vài chục ký tự
     [DllImport("gdi32.dll", CharSet = CharSet.Unicode)]
     static extern uint GetGlyphIndicesW(IntPtr hdc, string text, int count, [Out] ushort[] indices, uint flags);
     [DllImport("gdi32.dll")]

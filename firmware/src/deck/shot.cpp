@@ -1,7 +1,3 @@
-// Xem shot.h. Như cyd.cmd shot của CYD-EEZ (perf.cpp): mở lần lượt từng cảnh với dữ liệu mẫu cố định, đợi hoạt cảnh
-// xong hẳn rồi đọc lại 320×240 điểm ảnh từ bộ nhớ màn (cần -DSPI_READ_FREQUENCY=6000000), in theo từng dòng:
-//   [SHOT] tong <số ảnh>   [SHOT] begin <tên> 0   [SHOT] <y> <n>:<màu> ...   [SHOT] end <tên>   ...   [SHOT] xong
-// tools/cyd.ps1 đọc các dòng này ra PNG. Bo bỏ qua cảm ứng suốt lúc chụp (cyd_hw.cpp).
 #include "shot.h"
 
 #if defined(CYD_PERF) && CYD_PERF && defined(CYD_PERF_DEMO) && CYD_PERF_DEMO == 3
@@ -17,7 +13,6 @@
 
 namespace {
 
-// Mỗi cảnh chụp hai lượt: lượt 0 tiếng Việt, lượt 1 English (ảnh <tên>-0.png, <tên>-1.png)
 const char *const NAMES[] = {"trang1", "trang2", "obs", "cho-pc"};
 constexpr int COUNT = sizeof NAMES / sizeof NAMES[0];
 constexpr int ROUNDS = 2;
@@ -50,10 +45,9 @@ void dump(const char *name) {
   Serial.printf("[SHOT] end %s\n", name);
 }
 
-// Bắt đầu một lượt: ngôn ngữ của lượt, bộ phím mẫu và dữ liệu mẫu (nhạc đang phát, OBS đang ghi)
 void begin_round() {
   lang_set(round_no == 0 ? Lang::Vi : Lang::En);
-  sample_load();  // ảnh chụp luôn dùng bộ phím mẫu, dù bo đã có bộ phím từ PC
+  sample_load();
   sample_demo_state();
 }
 
@@ -63,7 +57,7 @@ void open(int index) {
     case 0:
       deck_go(0, false);
       deck_refresh();
-      deck_feedback(0, 4, true, true);  // phím Mic vừa bấm: PC báo xong
+      deck_feedback(0, 4, true, true);
       break;
     case 1:
       deck_go(1, true);
@@ -80,7 +74,7 @@ void open(int index) {
   }
 }
 
-}  // namespace
+}
 
 void shot_loop() {
   const uint32_t now = millis();

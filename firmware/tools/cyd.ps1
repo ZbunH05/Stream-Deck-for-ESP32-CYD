@@ -1,40 +1,4 @@
-﻿<#
-.SYNOPSIS
-    Lệnh một chạm cho project CYD Deck (Stream Deck trên ESP32-2432S028R + LVGL 9.5). Chép từ CYD-EEZ.
-
-.DESCRIPTION
-    all      (mặc định) Build, nạp, tự kiểm tra loại màn, tự nạp lại đúng env nếu sai,
-             rồi mở Serial monitor.
-    doctor   Kiểm tra máy: PlatformIO, driver CH340 và cổng COM.
-    build    Biên dịch firmware.
-    flash    Nạp firmware (tự tìm cổng COM; lỗi ở 921600 baud thì tự thử lại 115200).
-    detect   Khởi động lại bo, đọc dòng CYD_PANEL=... để biết màn ILI9341 hay ST7789.
-    monitor  Mở Serial monitor (Ctrl+C để thoát).
-    clean    Xóa file build.
-    shot     Chụp màn hình các cảnh mẫu (src\deck\shot.cpp) bằng cách đọc lại bộ nhớ màn qua Serial, ra PNG
-             trong shots\<giờ>; xong tự nạp lại bản thường. Mất vài phút.
-
-.PARAMETER Env
-    cyd (1 cổng micro-USB, màn ILI9341) hoặc cyd2usb (2 cổng USB, màn ST7789).
-    Bỏ trống: dùng env đã lưu trong tools\board-env.txt (lệnh detect ghi), mặc định cyd.
-
-.PARAMETER NoNet
-    Không còn tác dụng (Deck không có mạng, bản chụp luôn dùng dữ liệu mẫu); giữ để lệnh chép từ CYD-EEZ vẫn chạy.
-
-.PARAMETER Compare
-    Lệnh shot: thư mục của một lần chụp trước; đếm điểm ảnh khác của từng ảnh, ghi ảnh *-khac.png (chỗ khác tô đỏ).
-
-.PARAMETER ExtraFlags
-    Lệnh shot: cờ build thêm cho bản chụp (so A/B một thay đổi, ví dụ -ExtraFlags '-DCYD_NO_IRAM=1').
-
-.EXAMPLE
-    .\cyd.cmd
-    .\cyd.cmd doctor
-    .\cyd.cmd flash -Env cyd2usb -Port COM5
-    .\cyd.cmd all -NoMonitor
-    .\cyd.cmd shot -Compare shots\20261118-120000
-#>
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Position = 0)]
     [ValidateSet('all', 'doctor', 'build', 'flash', 'detect', 'monitor', 'clean', 'shot')]
@@ -45,7 +9,7 @@ param(
     [string]$Board = '',
 
     [string]$Port = '',
-    [switch]$SkipUi,  # không còn tác dụng (trước 17/11/2026 bỏ bước xuất giao diện từ EEZ Studio), giữ để lệnh cũ vẫn chạy
+    [switch]$SkipUi,
     [switch]$NoMonitor,
     [switch]$NoNet,
     [string]$Compare = '',
@@ -57,22 +21,14 @@ $ErrorActionPreference = 'Stop'
 $ProjectDir = Split-Path -Parent $PSScriptRoot
 $BoardEnvFile = Join-Path $PSScriptRoot 'board-env.txt'
 $DriverUrl = 'https://www.wch-ic.com/downloads/CH341SER_EXE.html'
-# Chip USB-UART hay gặp trên bo ESP32: CH340/CH9102 (WCH), CP210x (Silabs), USB của ESP32-S3
 $UsbSerialIds = 'VID_1A86|VID_10C4|VID_303A'
-# Firmware Deck nói ở 921600 baud (src/cyd/cyd_hw.cpp)
 $SerialBaud = 921600
 
-# ---------------------------------------------------------------------------
-# In ấn
-# ---------------------------------------------------------------------------
 function Write-Step([string]$Text) { Write-Host ''; Write-Host "==> $Text" -ForegroundColor Cyan }
 function Write-Ok([string]$Text) { Write-Host "  [OK] $Text" -ForegroundColor Green }
 function Write-Note([string]$Text) { Write-Host "  [!] $Text" -ForegroundColor Yellow }
 function Stop-WithError([string]$Text) { Write-Host "  [LỖI] $Text" -ForegroundColor Red; exit 1 }
 
-# ---------------------------------------------------------------------------
-# Công cụ
-# ---------------------------------------------------------------------------
 function Get-Pio {
     $cmd = Get-Command pio -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
@@ -94,8 +50,6 @@ function Get-SerialPorts {
     @(Get-CimInstance Win32_PnPEntity | Where-Object { $_.Name -match '\(COM\d+\)' -and $_.PNPDeviceID -match $UsbSerialIds })
 }
 
-# CydAgent (..\..\pc-agent) giữ cổng COM suốt lúc chạy. Trước khi nạp hay đọc log thì
-# bảo nó nhả cổng (lệnh "pause" tới 127.0.0.1:47830), xong việc thì "resume". Agent không chạy thì bỏ qua.
 $AgentPort = 47830
 $script:AgentPaused = $false
 
@@ -122,7 +76,7 @@ function Suspend-Agent {
     if ($reply) {
         $script:AgentPaused = $true
         Write-Note 'CYD PC Agent đang chạy: đã bảo nó nhả cổng COM, xong việc sẽ nối lại.'
-        Start-Sleep -Milliseconds 400  # đợi agent đóng hẳn cổng
+        Start-Sleep -Milliseconds 400
     }
 }
 
@@ -135,7 +89,6 @@ function Resume-Agent {
 
 function Find-CydPort {
     if ($Port) { return $Port }
-    # @() giữ kiểu mảng: Windows PowerShell 5.1 trả .Count rỗng khi chỉ có 1 đối tượng CIM
     $ports = @(Get-SerialPorts)
     if ($ports.Count -ge 1) {
         $com = [regex]::Match($ports[0].Name, '\((COM\d+)\)').Groups[1].Value
@@ -149,9 +102,6 @@ function Find-CydPort {
     Stop-WithError 'Không thấy bo CYD. Cắm lại cáp USB (phải là cáp có truyền dữ liệu, không phải cáp chỉ sạc).'
 }
 
-# ---------------------------------------------------------------------------
-# Các bước
-# ---------------------------------------------------------------------------
 function Invoke-Build([string]$TargetEnv) {
     Write-Step "Build firmware (env $TargetEnv)"
     & $Pio run -d $ProjectDir -e $TargetEnv
@@ -174,7 +124,6 @@ function Invoke-Flash([string]$TargetEnv, [string]$ComPort) {
     Write-Ok 'Nạp xong'
 }
 
-# Khởi động lại bo và đọc log khởi động qua Serial
 function Read-BootLog([string]$ComPort, [int]$Seconds = 8) {
     $sp = New-Object System.IO.Ports.SerialPort $ComPort, $SerialBaud, ([IO.Ports.Parity]::None), 8, ([IO.Ports.StopBits]::One)
     $sp.DtrEnable = $false
@@ -182,7 +131,6 @@ function Read-BootLog([string]$ComPort, [int]$Seconds = 8) {
     $sp.Encoding = [Text.Encoding]::UTF8
     $sp.Open()
     try {
-        # Mạch tự reset của CYD: bật RTS kéo chân EN xuống (reset), DTR để yên nên chạy bình thường
         $sp.RtsEnable = $true
         Start-Sleep -Milliseconds 150
         $sp.RtsEnable = $false
@@ -200,7 +148,6 @@ function Read-BootLog([string]$ComPort, [int]$Seconds = 8) {
     }
 }
 
-# Trả về env đúng nếu bo cần env khác env đang nạp, ngược lại trả về $null
 function Invoke-Detect([string]$ComPort, [string]$CurrentEnv) {
     Write-Step 'Kiểm tra loại màn hình trên bo'
     $log = Read-BootLog $ComPort
@@ -237,8 +184,6 @@ function Invoke-Monitor([string]$TargetEnv, [string]$ComPort) {
     & $Pio device monitor -d $ProjectDir -e $TargetEnv -p $ComPort
 }
 
-# Đọc các dòng [SHOT] (bản -DCYD_PERF_DEMO=3, src/deck/shot.cpp) ra ảnh, so hai lần chụp. Viết bằng C# cho nhanh:
-# mỗi ảnh 76.800 điểm ảnh.
 $ShotCode = @'
 using System;
 using System.Collections.Generic;
@@ -250,10 +195,8 @@ using System.Runtime.InteropServices;
 public static class CydShot {
     public const int W = 320, H = 240;
 
-    // Số dòng hỏng của từng ảnh ở lần Parse gần nhất (dòng không đủ 320 điểm, ví dụ log khác chen vào giữa dòng)
     public static Dictionary<string, int> BadRows = new Dictionary<string, int>();
 
-    // tên ảnh ("main-0": trang main, lượt 0 = theme lúc bắt đầu) -> điểm ảnh RGB565
     public static Dictionary<string, ushort[]> Parse(string path) {
         var shots = new Dictionary<string, ushort[]>();
         BadRows = new Dictionary<string, int>();
@@ -301,7 +244,6 @@ public static class CydShot {
         bytes[offset + 2] = (byte)(((c >> 11) & 31) * 255 / 31);
     }
 
-    // other != null: ảnh so với lần chụp khác, chỗ khác tô đỏ, chỗ giống làm nhạt
     public static void Save(ushort[] px, ushort[] other, string path) {
         using (var bmp = new Bitmap(W, H, PixelFormat.Format24bppRgb)) {
             var data = bmp.LockBits(new Rectangle(0, 0, W, H), ImageLockMode.WriteOnly, PixelFormat.Format24bppRgb);
@@ -357,7 +299,7 @@ function Invoke-Shot([string]$TargetEnv, [string]$ComPort) {
     $sp.Open()
     $log = New-Object Text.StringBuilder
     try {
-        $sp.RtsEnable = $true  # khởi động lại bo (xem Read-BootLog)
+        $sp.RtsEnable = $true
         Start-Sleep -Milliseconds 150
         $sp.RtsEnable = $false
         $deadline = (Get-Date).AddMinutes(6)
@@ -370,7 +312,7 @@ function Invoke-Shot([string]$TargetEnv, [string]$ComPort) {
                 [void]$log.Append($chunk)
                 $tail = $tail + $chunk
                 $cut = $tail.LastIndexOf("`n")
-                if ($cut -ge 0) {  # chỉ xét các dòng đã trọn
+                if ($cut -ge 0) {
                     $lines = $tail.Substring(0, $cut + 1)
                     $tail = $tail.Substring($cut + 1)
                     $shots += ([regex]::Matches($lines, '\[SHOT\] end ')).Count
@@ -388,7 +330,7 @@ function Invoke-Shot([string]$TargetEnv, [string]$ComPort) {
         Write-Progress -Activity 'Chụp màn hình' -Completed
     }
 
-    try {  # đọc ảnh lỗi thế nào cũng phải nạp lại bản thường (finally)
+    try {
         Add-Type -TypeDefinition $ShotCode -ReferencedAssemblies System.Drawing
         $images = [CydShot]::Parse($logPath)
         foreach ($name in $images.Keys) {
@@ -444,9 +386,6 @@ function Invoke-Doctor {
     Write-Ok "Env đang dùng: $(Get-BoardEnv)"
 }
 
-# ---------------------------------------------------------------------------
-# Chạy lệnh
-# ---------------------------------------------------------------------------
 $Pio = Get-Pio
 $TargetEnv = Get-BoardEnv
 

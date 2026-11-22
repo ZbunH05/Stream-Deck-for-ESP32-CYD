@@ -1,12 +1,4 @@
-﻿<#
-.SYNOPSIS
-    Bật hoặc tắt việc tự chạy CYD PC Agent mỗi khi đăng nhập Windows (lối tắt trong thư mục Startup của bạn).
-
-.EXAMPLE
-    powershell -ExecutionPolicy Bypass -File tu-chay.ps1          # bật tự chạy và mở agent luôn
-    powershell -ExecutionPolicy Bypass -File tu-chay.ps1 -Tat     # tắt tự chạy (agent đang chạy vẫn chạy tiếp)
-#>
-param([switch]$Tat)
+﻿param([switch]$Tat)
 
 $ErrorActionPreference = 'Stop'
 $exe = Join-Path $PSScriptRoot 'bin\CydAgent.exe'

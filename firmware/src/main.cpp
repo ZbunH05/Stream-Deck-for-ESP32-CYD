@@ -1,10 +1,3 @@
-// CYD Deck: Stream Deck trên màn CYD (ESP32-2432S028R), nối PC qua cáp USB.
-//
-//   src/cyd/   phần cứng: màn hình, cảm ứng, LED, cuộn phần cứng (chép từ CYD-EEZ)
-//   src/app/   hiệu ứng (motion, chép từ CYD-EEZ), bảng màu tối, font icon
-//   src/ui/    font
-//   src/deck/  bộ phím: giao diện (deck), bộ phím mẫu (sample), nối PC (link), chụp màn hình (shot)
-
 #include <Arduino.h>
 
 #include "app/motion.h"
@@ -17,20 +10,20 @@
 #include "deck/store.h"
 
 void setup() {
-  cyd_init();     // Serial, màn hình, cảm ứng, LVGL
-  motion_init();  // hoạt cảnh, kể cả kiểu "lún khi nhấn" mà phím gắn vào lúc dựng
-  deck_init();    // hai màn dùng luân phiên
-  store_init();   // kho ảnh phím trong flash (phân vùng deckimg)
-  link_init();    // bộ phím đã lưu từ CydAgent; chưa có thì bộ phím mẫu
+  cyd_init();
+  motion_init();
+  deck_init();
+  store_init();
+  link_init();
   deck_go(0, false);
   Serial.println("[APP] San sang");
 }
 
 void loop() {
-  cyd_loop();     // LVGL vẽ lại, đọc cảm ứng
-  motion_tick();  // bước kế của trang đang trượt
-  link_poll();    // byte từ PC qua cáp USB
-  deck_tick();    // ẩn dấu ✓/⚠ đã hết giờ
-  shot_loop();    // chỉ có trong bản chụp màn hình
-  perf_loop();    // chỉ có trong bản đo hiệu năng (perf.h)
+  cyd_loop();
+  motion_tick();
+  link_poll();
+  deck_tick();
+  shot_loop();
+  perf_loop();
 }

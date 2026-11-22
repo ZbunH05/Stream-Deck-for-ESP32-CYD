@@ -1,4 +1,3 @@
-// Xem lang.h.
 #include "lang.h"
 
 #include <Arduino.h>
@@ -8,7 +7,6 @@ namespace {
 
 Lang current = Lang::En;
 
-// [chuỗi][ngôn ngữ]
 const char *const STRINGS[(int)Str::Count][2] = {
     {"Đang chờ máy tính…", "Waiting for computer…"},
     {"Mở CydAgent trên PC", "Start CydAgent on the PC"},
@@ -27,7 +25,7 @@ const char *const STRINGS[(int)Str::Count][2] = {
     {"Rớt", "Drop"},
 };
 
-}  // namespace
+}
 
 Lang lang() { return current; }
 

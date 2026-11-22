@@ -1,9 +1,4 @@
 @echo off
-rem Sinh anh phim mau (src\deck\sample_images.c) bang csc.exe co san trong .NET Framework 4 cua Windows.
-rem Chi can chay lai khi doi anh mau trong tools\make_sample_images.cs.
-rem Can font Material Symbols Rounded (Apache 2.0) tai tu github.com/google/material-design-icons/tree/master/variablefont:
-rem   tools\make_sample_images.cmd "MaterialSymbolsRounded[FILL,GRAD,opsz,wght].ttf" "MaterialSymbolsRounded[FILL,GRAD,opsz,wght].codepoints"
-rem KeyArt.cs (ve anh phim) nam trong CydAgent, dung chung cho anh mau va anh that.
 setlocal
 if "%~2"=="" (
   echo Dung: make_sample_images.cmd ^<file .ttf^> ^<file .codepoints^>

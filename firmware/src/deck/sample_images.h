@@ -1,4 +1,3 @@
-// Sinh bởi tools/make_sample_images.cs, đừng sửa tay.
 #pragma once
 #include <lvgl.h>
 #ifdef __cplusplus

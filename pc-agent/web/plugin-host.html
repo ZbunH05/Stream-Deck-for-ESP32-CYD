@@ -3,13 +3,6 @@
 <head>
 <meta charset="utf-8">
 <title>CYD Deck plugin host</title>
-<!--
-  Trang này chạy trong một Edge ẩn (headless) do CydAgent mở khi cần:
-  - mỗi plugin HTML/JS của Stream Deck là một iframe cùng nguồn, được gọi connectElgatoStreamDeckSocket(...) như app
-    Stream Deck của Elgato làm;
-  - đổi ảnh SVG (setImage của plugin) sang PNG để agent vẽ lên phím.
-  Nói chuyện với agent qua WebSocket của ElgatoHost (cổng và mã trong địa chỉ trang).
--->
 </head>
 <body>
 <script>
@@ -61,7 +54,6 @@ function load(m) {
   frames.set(m.uuid, frame);
 }
 
-// SVG (data URL) → PNG 144×144 (agent thu về 72×72)
 async function render(id, svg) {
   try {
     const img = new Image();

@@ -1,4 +1,3 @@
-// Xem link.h.
 #include "link.h"
 
 #include <Arduino.h>
@@ -31,7 +30,7 @@ enum : uint8_t {
 constexpr uint16_t MAX_PAYLOAD = 640;
 constexpr uint32_t ONLINE_MS = 4000;
 constexpr size_t LAYOUT_MAX = 16384 - 16;
-constexpr size_t CHUNK_MAX = 2048;  // một gói ảnh giải nén ra tối đa chừng này byte (agent chia gói theo đó)
+constexpr size_t CHUNK_MAX = 2048;
 
 enum class Rx : uint8_t { Magic1, Magic2, Type, Length1, Length2, Payload, Crc };
 Rx rx = Rx::Magic1;
@@ -42,11 +41,10 @@ uint8_t chunk[CHUNK_MAX];
 uint32_t bad_frames = 0;
 uint32_t last_info_ms = 0;
 
-// bộ phím đang nhận: các gói 11/12 chép nguyên vào đây, LAYOUT_END kiểm CRC rồi áp dụng và lưu vào flash
 uint8_t *incoming = nullptr;
 size_t incoming_length = 0;
 bool incoming_ok = false;
-uint32_t layout_crc = 0;  // CRC của bộ phím đang dùng (0: bộ phím mẫu)
+uint32_t layout_crc = 0;
 
 uint8_t crc8(uint8_t value, uint8_t byte) {
   value ^= byte;
@@ -84,7 +82,6 @@ struct Reader {
   bool more() const { return p < end; }
 };
 
-// Phần dữ liệu ảnh của gói (sau phần đầu đã đọc): giải nén vào `chunk`. Trả số byte, -1 nếu hỏng.
 int decode_chunk(Reader &r) {
   const uint8_t encoding = r.u8();
   if (!r.ok) return -1;
@@ -97,12 +94,8 @@ int decode_chunk(Reader &r) {
   return encoding == 1 ? rle_decode(r.p, length, chunk, CHUNK_MAX) : -1;
 }
 
-// ---------- bộ phím ----------
-
-// Áp dụng bộ phím từ các gói 11/12 nối nhau (vừa nhận, hoặc đọc lại từ flash lúc khởi động). Dựng xong cả bộ rồi mới
-// chép đè, nên gói hỏng giữa chừng không để lại bộ phím nửa cũ nửa mới.
 bool apply_layout(const uint8_t *blob, size_t length) {
-  static DeckProfile fresh;  // ~10 KB: không đặt trên stack của loop()
+  static DeckProfile fresh;
   fresh = DeckProfile{};
   bool begun = false;
   Lang language = lang();
@@ -143,11 +136,10 @@ bool apply_layout(const uint8_t *blob, size_t length) {
   if (!begun || fresh.page_count == 0) return false;
   lang_set(language);
   ramimg_clear_all();
-  deck_profile() = fresh;  // trạng thái bật/tắt, nhãn lúc chạy và ảnh RAM PC gửi lại ngay sau đó
+  deck_profile() = fresh;
   return true;
 }
 
-// Mọi mã ảnh bộ phím đang dùng: khi kho đầy chỉ ghi đè ảnh không còn dùng
 int keep_list(uint32_t *out, int max) {
   const DeckProfile &p = deck_profile();
   int n = 0;
@@ -160,14 +152,11 @@ int keep_list(uint32_t *out, int max) {
   return n;
 }
 
-// ---------- từng loại gói ----------
-
 void on_hello(Reader &r) {
   r.u8();
   char host[32];
   r.text(host, sizeof host);
   Serial.printf("[DECK] chao 2 %d/%d %08lx %s\n", store_used(), store_slots(), (unsigned long)layout_crc, host);
-  // PC vừa (nối) lại: báo trang đang hiện để nó gửi ảnh RAM và trạng thái của trang này
   if (deck_page() >= 0) link_page(deck_page());
 }
 
@@ -234,7 +223,7 @@ void on_key_image(Reader &r) {
   const uint8_t page = r.u8(), key = r.u8();
   const uint16_t offset = r.u16();
   if (!r.ok || key >= DECK_KEYS) return;
-  if (offset == 0xFFFF) {  // về ảnh của bộ phím
+  if (offset == 0xFFFF) {
     ramimg_clear(page, key);
     if (deck_page() == page) deck_refresh_key(key);
     return;
@@ -334,11 +323,11 @@ void dispatch() {
     case ACK: on_ack(r); break;
     case OBS: on_obs(r); break;
     case KEY_IMAGE: on_key_image(r); break;
-    default: break;  // gói của trang Máy tính CYD-EEZ (STATS, PROCS): bỏ qua
+    default: break;
   }
 }
 
-}  // namespace
+}
 
 void link_init() {
   lang_load();
@@ -354,7 +343,7 @@ void link_init() {
 }
 
 void link_poll() {
-  int budget = 4096;  // không giữ loop() quá lâu khi PC gửi dồn (921600 baud ≈ 90 KB/s)
+  int budget = 4096;
   while (budget-- > 0 && Serial.available() > 0) {
     const uint8_t b = (uint8_t)Serial.read();
     switch (rx) {
@@ -402,7 +391,7 @@ void link_poll() {
   }
   DeckInfo &info = deck_info();
 #if defined(CYD_PERF_DEMO) && (CYD_PERF_DEMO == 3 || CYD_PERF_DEMO == 4)
-  return;  // ảnh chụp và bản đo: trạng thái "đã nối" là dữ liệu mẫu, không có PC gửi INFO
+  return;
 #endif
   if (info.online && millis() - last_info_ms > ONLINE_MS) {
     info.online = false;

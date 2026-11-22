@@ -1,4 +1,3 @@
-# Build
 firmware/.pio/
 firmware/tools/bin/
 firmware/tools/board-env.txt

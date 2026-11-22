@@ -1,9 +1,3 @@
-// CYD Deck: điều khiển OBS Studio qua obs-websocket 5 (có sẵn trong OBS 28 trở lên; bật ở Tools → WebSocket Server
-// Settings). Client viết tay trên ClientWebSocket của .NET 4.5: Hello → Identify (xác thực SHA-256) → Identified, rồi
-// yêu cầu (op 6) và sự kiện (op 5). Tự nối lại khi OBS mở/tắt.
-//
-// Chỉ nối khi bộ phím có phím OBS hay trang có thanh OBS (Needed). Mật khẩu lưu mã hoá DPAPI ở %APPDATA%\CydDeck\obs.json;
-// có nút lấy thẳng từ cấu hình obs-websocket của OBS trên cùng máy.
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -21,7 +15,7 @@ public sealed class ObsSettings {
   public string Host { get; set; }
   public int Port { get; set; }
   public bool Enabled { get; set; }
-  public string Password { get; set; }  // mã hoá DPAPI (CurrentUser), base64
+  public string Password { get; set; }
 }
 
 sealed class DeckObs {
@@ -34,9 +28,8 @@ sealed class DeckObs {
   int nextId;
   readonly ConcurrentDictionary<string, ManualResetEvent> waiting = new ConcurrentDictionary<string, ManualResetEvent>();
   readonly ConcurrentDictionary<string, Dictionary<string, object>> answers = new ConcurrentDictionary<string, Dictionary<string, object>>();
-  public Func<bool> Needed = () => false;  // DeckSync: bộ phím có dùng OBS không
+  public Func<bool> Needed = () => false;
 
-  // trạng thái OBS
   volatile bool connected;
   string scene = "", recTime = "", liveTime = "";
   bool rec, recPaused, live, vcam;
@@ -45,7 +38,7 @@ sealed class DeckObs {
   List<string> scenes = new List<string>();
   List<string> inputs = new List<string>();
   readonly Dictionary<string, bool> muted = new Dictionary<string, bool>();
-  readonly Dictionary<string, double> volume = new Dictionary<string, double>();  // 0..1 (inputVolumeMul)
+  readonly Dictionary<string, double> volume = new Dictionary<string, double>();
   public volatile string Status = "";
 
   public DeckObs() {
@@ -54,7 +47,6 @@ sealed class DeckObs {
   }
 
   public bool Connected { get { return connected; } }
-  // Trang cài đặt đang mở mục OBS hay đang sửa phím OBS: nối OBS dù bộ phím chưa có phím OBS (để đọc danh sách cảnh)
   long wantedUntil;
 
   public void WakeFor(int seconds) { Interlocked.Exchange(ref wantedUntil, DateTime.UtcNow.AddSeconds(seconds).Ticks); }
@@ -63,8 +55,6 @@ sealed class DeckObs {
     get { return settings.Enabled && (Needed() || DateTime.UtcNow.Ticks < Interlocked.Read(ref wantedUntil)); }
   }
   public ObsSettings Settings { get { return settings; } }
-
-  // ---------- cài đặt ----------
 
   void Load() {
     settings = null;
@@ -86,7 +76,7 @@ sealed class DeckObs {
     }
     Directory.CreateDirectory(DeckConfig.Dir);
     File.WriteAllText(FilePath, DeckConfig.Json().Serialize(settings), new UTF8Encoding(false));
-    Disconnect();  // nối lại với cài đặt mới
+    Disconnect();
   }
 
   static string Protect(string text) {
@@ -105,15 +95,12 @@ sealed class DeckObs {
     }
   }
 
-  // Cổng và mật khẩu từ cấu hình obs-websocket của OBS trên máy này (chỉ dùng khi địa chỉ là máy này)
   public static Dictionary<string, object> LocalObsConfig() {
     string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                                @"obs-studio\plugin_config\obs-websocket\config.json");
     if (!File.Exists(path)) return null;
     return DeckConfig.Json().Deserialize<Dictionary<string, object>>(File.ReadAllText(path, Encoding.UTF8));
   }
-
-  // ---------- kết nối ----------
 
   void Run() {
     int backoff = 2000;
@@ -172,15 +159,14 @@ sealed class DeckObs {
     connected = true;
     Status = "OBS " + settings.Host + ":" + settings.Port;
     Log.Agent("Đã nối OBS ở " + settings.Host + ":" + settings.Port);
-    // hỏi trạng thái ban đầu; trả lời đến trong Receive()
     new Thread(() => {
       try {
         Request("GetSceneList", null, false);
         Request("GetCurrentProgramScene", null, false);
         Request("GetInputList", null, false);
         Request("GetVirtualCamStatus", null, false);
-        while (connected) {  // giờ ghi/live, khung rớt, CPU: mỗi giây
-          if (!Wanted) {     // bộ phím không còn phím OBS, trang cài đặt đã đóng: ngắt
+        while (connected) {
+          if (!Wanted) {
             Log.Agent("OBS: không còn cần, ngắt");
             Disconnect();
             break;
@@ -191,7 +177,6 @@ sealed class DeckObs {
           Thread.Sleep(1000);
         }
       } catch (Exception) {
-        // OBS vừa ngắt giữa chừng (Request ném): vòng Run tự nối lại. Không để lọt ra ngoài: làm sập cả agent
       }
     }) { IsBackground = true, Name = "obs-poll" }.Start();
   }
@@ -240,7 +225,6 @@ sealed class DeckObs {
     }
   }
 
-  // Gửi yêu cầu; wait: chờ trả lời (lỗi thì ném), không chờ thì trả lời vào OnResponse
   Dictionary<string, object> Request(string type, Dictionary<string, object> data, bool wait) {
     ClientWebSocket socket;
     lock (gate) socket = ws;
@@ -284,7 +268,6 @@ sealed class DeckObs {
     return d != null && d.TryGetValue(key, out v) && v != null ? Convert.ToDouble(v) : 0;
   }
 
-  // "00:12:04.123" → "12:04", "01:02:03.000" → "1:02:03"
   static string Timecode(string tc) {
     if (string.IsNullOrEmpty(tc)) return "";
     var parts = tc.Split('.')[0].Split(':');
@@ -331,7 +314,7 @@ sealed class DeckObs {
         case "GetVirtualCamStatus":
           vcam = Bool(data, "outputActive");
           break;
-        case "GetInputMute":  // AskLater: tên nguồn ở đuôi requestId sau dấu |
+        case "GetInputMute":
           if (id.Contains("|")) muted[id.Substring(id.IndexOf('|') + 1)] = Bool(data, "inputMuted");
           break;
         case "GetInputVolume":
@@ -377,8 +360,6 @@ sealed class DeckObs {
       }
     }
   }
-
-  // ---------- dùng từ bộ phím ----------
 
   public List<string> Scenes { get { lock (gate) return scenes.ToList(); } }
   public List<string> Inputs { get { lock (gate) return inputs.ToList(); } }
@@ -434,7 +415,6 @@ sealed class DeckObs {
     return "";
   }
 
-  // Hỏi mute/âm lượng của một nguồn chưa biết; trả lời ghi vào bảng theo tên nguồn (đuôi requestId)
   readonly HashSet<string> asked = new HashSet<string>();
 
   void AskLater(string type, string input) {
@@ -456,7 +436,6 @@ sealed class DeckObs {
     });
   }
 
-  // Gói OBS (0x1A) cho thanh tin của bo
   public byte[] InfoPayload() {
     lock (gate) {
       using (var ms = new MemoryStream())
@@ -474,4 +453,4 @@ sealed class DeckObs {
   }
 }
 
-}  // namespace CydAgent
+}

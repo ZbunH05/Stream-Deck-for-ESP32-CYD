@@ -1,15 +1,3 @@
-// CYD Deck đóng vai app Stream Deck cho plugin của Elgato (giao thức WebSocket JSON của Stream Deck SDK): bo CYD hiện ra
-// với plugin như một Stream Deck Neo (4×2 phím 72 px). Hỗ trợ plugin .exe (C++, C#), Node.js và HTML/JS.
-//
-//   plugin → host: registerPlugin, setSettings, getSettings, setGlobalSettings, getGlobalSettings, setTitle, setImage,
-//                  setState, showOk, showAlert, openUrl, logMessage, sendToPropertyInspector
-//   host → plugin: deviceDidConnect, willAppear, willDisappear, keyDown, keyUp, didReceiveSettings,
-//                  didReceiveGlobalSettings, propertyInspectorDidAppear/Disappear, sendToPlugin, titleParametersDidChange
-//   Property Inspector (trang thuộc tính của hành động) chạy trong khung bên phải của trang cài đặt, cùng nguồn
-//   http://127.0.0.1:47831; plugin HTML chạy trong một Edge ẩn (headless) nạp trang web\plugin-host.html.
-//   Không hỗ trợ: núm xoay và màn cảm ứng của Stream Deck + (setFeedback...), switchToProfile, multi-action.
-//
-// Chỉ chạy plugin đang được dùng (có phím trong bộ phím, hay Property Inspector đang mở): đỡ tốn tài nguyên.
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -29,21 +17,20 @@ sealed class ElgatoHost : IDeckPlugins {
 
   sealed class Runtime {
     public PluginInfo Info;
-    public string Token;          // -pluginUUID truyền cho plugin, plugin đăng ký lại bằng nó
+    public string Token;
     public Process Proc;
     public WsConnection Conn;
-    public List<string> Pending = new List<string>();  // tin nhắn gửi trước khi plugin đăng ký xong
+    public List<string> Pending = new List<string>();
 
     public DateTime StartedAt;
     public bool Stopping;
-    public bool Loaded;  // plugin HTML: đã gửi loadPlugin cho Edge ẩn đang chạy
+    public bool Loaded;
   }
 
   sealed class Inspector {
     public string Context, Plugin;
   }
 
-  // Phím chỉ có trong trang cài đặt (chưa lưu) mà Property Inspector đang mở
   sealed class Draft {
     public string Context, ActionUuid, Settings;
     public int Slot;
@@ -57,16 +44,16 @@ sealed class ElgatoHost : IDeckPlugins {
   readonly Dictionary<string, Runtime> runtimes = new Dictionary<string, Runtime>();
   readonly Dictionary<string, WsConnection> inspectors = new Dictionary<string, WsConnection>();
   readonly Dictionary<string, Draft> drafts = new Dictionary<string, Draft>();
-  readonly Dictionary<string, string> settingsOverride = new Dictionary<string, string>();  // context → settings mới nhất
-  readonly Dictionary<string, string> titles = new Dictionary<string, string>();            // context → setTitle
-  readonly Dictionary<string, KeyRef> shown = new Dictionary<string, KeyRef>();             // context đã willAppear → phím lúc đó
+  readonly Dictionary<string, string> settingsOverride = new Dictionary<string, string>();
+  readonly Dictionary<string, string> titles = new Dictionary<string, string>();
+  readonly Dictionary<string, KeyRef> shown = new Dictionary<string, KeyRef>();
   readonly string hostToken = Guid.NewGuid().ToString("N");
   WsConnection host;
   Process edge;
   int renderId;
   readonly ConcurrentDictionary<int, string> rendered = new ConcurrentDictionary<int, string>();
   readonly ManualResetEvent renderSignal = new ManualResetEvent(false);
-  public Func<string> HostPageUrl;  // DeckWeb gắn: địa chỉ web\plugin-host.html (có mã)
+  public Func<string> HostPageUrl;
 
   static string GlobalSettingsPath { get { return Path.Combine(DeckConfig.Dir, "plugin-settings.json"); } }
   Dictionary<string, string> globalSettings = new Dictionary<string, string>();
@@ -82,7 +69,6 @@ sealed class ElgatoHost : IDeckPlugins {
     }
     Reload();
     DeckConfig.PluginArt = StateArt;
-    // bộ phím dựng lúc khởi động chưa có ảnh của plugin: dựng lại
     if (deck.Layout.Config.Pages.Any(p => p.Keys.Any(k => k.Kind == "plugin"))) {
       ThreadPool.QueueUserWorkItem(_ => deck.Apply(deck.Layout.Config));
     } else {
@@ -113,8 +99,6 @@ sealed class ElgatoHost : IDeckPlugins {
     }
     return null;
   }
-
-  // ---------- phím của bộ phím ↔ context ----------
 
   sealed class KeyRef {
     public int BoardPage, Slot;
@@ -149,12 +133,8 @@ sealed class ElgatoHost : IDeckPlugins {
     return string.IsNullOrEmpty(fallback) ? "{}" : fallback;
   }
 
-  // Cài đặt mới nhất của phím plugin (trang cài đặt dùng khi lưu, để không đè cài đặt plugin vừa đặt)
   public string LatestSettings(string context, string current) { return SettingsOf(context, current); }
 
-  // ---------- chạy plugin ----------
-
-  // Chạy những plugin đang được dùng, tắt những plugin không còn dùng
   void Ensure() {
     var needed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     foreach (var page in deck.Layout.Config.Pages) {
@@ -206,7 +186,7 @@ sealed class ElgatoHost : IDeckPlugins {
     lock (gate) runtimes[p.Uuid] = r;
     try {
       if (p.Runtime == "html") {
-        EnsureHost();  // Edge vừa mở thì Register (registerHost) đã nạp plugin này rồi
+        EnsureHost();
         lock (gate) {
           if (r.Loaded) return;
           r.Loaded = true;
@@ -260,7 +240,6 @@ sealed class ElgatoHost : IDeckPlugins {
         shown.Remove(c);
       }
     }
-    // chết liên tục (5 lần trong 10 phút): thôi, báo lỗi trong trang cài đặt, xem log
     List<DateTime> times;
     int count;
     lock (gate) {
@@ -305,8 +284,6 @@ sealed class ElgatoHost : IDeckPlugins {
     try { if (edge != null && !edge.HasExited) edge.Kill(); } catch (Exception) { }
   }
 
-  // ---------- Edge ẩn: plugin HTML và vẽ SVG ----------
-
   void EnsureHost() {
     lock (gate) {
       if (edge != null && !edge.HasExited) return;
@@ -330,9 +307,6 @@ sealed class ElgatoHost : IDeckPlugins {
     while (host == null && DateTime.UtcNow < until) Thread.Sleep(100);
   }
 
-  // Edge ẩn luôn bị tắt đột ngột (theo agent, qua Job Object), nên lần mở sau hồ sơ bị coi là "đã sập" và Edge giữ một
-  // hộp "Restore pages" (khôi phục trang) ẩn. Đánh dấu hồ sơ đã thoát bình thường trước khi mở, như các công cụ tự động
-  // hoá trình duyệt vẫn làm; cờ --hide-crash-restore-bubble là lớp chặn thứ hai.
   static void MarkCleanExit(string profile) {
     string prefs = Path.Combine(profile, @"Default\Preferences");
     try {
@@ -351,7 +325,6 @@ sealed class ElgatoHost : IDeckPlugins {
     if (h != null) h.Send(json.Serialize(message));
   }
 
-  // SVG (data URL) → PNG qua canvas của Edge ẩn
   Bitmap RenderSvg(string dataUrl) {
     EnsureHost();
     if (host == null) return null;
@@ -366,8 +339,6 @@ sealed class ElgatoHost : IDeckPlugins {
     return string.IsNullOrEmpty(png) ? null : DecodeDataUrl(png);
   }
 
-  // ---------- ảnh ----------
-
   static Bitmap DecodeDataUrl(string url) {
     int comma = url.IndexOf(',');
     if (comma < 0) return null;
@@ -378,7 +349,6 @@ sealed class ElgatoHost : IDeckPlugins {
     using (var image = Image.FromStream(ms)) return new Bitmap(image);
   }
 
-  // data:image/svg+xml;charset=utf8,<svg …> (chưa mã hoá, có thể chứa # hay <) → dạng base64 an toàn cho thẻ <img>
   static string SvgBase64(string dataUrl) {
     int comma = dataUrl.IndexOf(',');
     if (comma < 0 || dataUrl.Substring(0, comma).Contains(";base64")) return dataUrl;
@@ -387,7 +357,6 @@ sealed class ElgatoHost : IDeckPlugins {
     return "data:image/svg+xml;base64," + Convert.ToBase64String(Encoding.UTF8.GetBytes(text));
   }
 
-  // Ảnh plugin gửi (data URL PNG/JPEG/SVG, SVG trần, hay đường dẫn file trong thư mục plugin) → Bitmap
   Bitmap LoadImage(PluginInfo p, string image) {
     if (string.IsNullOrEmpty(image)) return null;
     try {
@@ -420,7 +389,6 @@ sealed class ElgatoHost : IDeckPlugins {
     }
   }
 
-  // Ảnh trạng thái từ manifest cho bộ phím (DeckConfig.PluginArt)
   byte[] StateArt(DeckKeyConfig key, int state, bool withTitle) {
     PluginAction action;
     var p = PluginOfAction(key.ActionUuid, out action);
@@ -432,8 +400,6 @@ sealed class ElgatoHost : IDeckPlugins {
       return Compose(picture, strip);
     }
   }
-
-  // ---------- sự kiện từ bo (DeckSync) ----------
 
   Dictionary<string, object> Coordinates(int slot) {
     return new Dictionary<string, object> { { "column", slot % 4 }, { "row", slot / 4 } };
@@ -526,8 +492,6 @@ sealed class ElgatoHost : IDeckPlugins {
     FlushActivity(PluginOfActionUuid(old.Key.ActionUuid));
   }
 
-  // Plugin đã làm gì trong lúc phím của nó hiện trên bo: một dòng trong log của plugin khi phím rời màn hình
-  // (xem bằng nút Log trong mục Plugin; giúp biết plugin có gửi nhãn, ảnh hay không)
   readonly Dictionary<string, Dictionary<string, int>> activity = new Dictionary<string, Dictionary<string, int>>();
 
   void Count(string uuid, string what) {
@@ -552,8 +516,6 @@ sealed class ElgatoHost : IDeckPlugins {
     if (p != null && c.Count > 0) PluginLog(p, "lúc phím hiện trên bo: " + string.Join(", ", c.Select(kv => kv.Key + " ×" + kv.Value)));
   }
 
-  // Bộ phím mới: như Elgato khi đổi hồ sơ, mọi phím đang hiện nhận willDisappear rồi phím của trang đang hiện nhận
-  // willAppear (bo vừa xoá nhãn và ảnh plugin, plugin vẽ lại trong willAppear)
   public void LayoutChanged(DeckLayout layout) {
     List<KeyRef> old;
     lock (gate) {
@@ -566,8 +528,6 @@ sealed class ElgatoHost : IDeckPlugins {
     int page = deck.VisiblePage;
     if (page >= 0) foreach (var k in KeysOn(page).ToList()) Appear(k);
   }
-
-  // ---------- tin nhắn từ plugin và Property Inspector ----------
 
   static string S(Dictionary<string, object> d, string key) {
     object v;
@@ -639,7 +599,6 @@ sealed class ElgatoHost : IDeckPlugins {
           globalSettings[plugin.Uuid] = json.Serialize(payloadObj ?? new Dictionary<string, object>());
           File.WriteAllText(GlobalSettingsPath, json.Serialize(globalSettings), new UTF8Encoding(false));
         }
-        // báo bên kia (plugin ↔ các Property Inspector của nó)
         var global = new Dictionary<string, object> { { "event", "didReceiveGlobalSettings" }, { "payload", new Dictionary<string, object> { { "settings", payloadObj } } } };
         if (runtime != null) {
           List<WsConnection> pis;
@@ -684,7 +643,7 @@ sealed class ElgatoHost : IDeckPlugins {
         if (k == null) break;
         string image = payload != null ? S(payload, "image") : "";
         if (image.Length == 0) {
-          deck.SetKeyImage(k.BoardPage, k.Slot, null);  // về ảnh trạng thái trong manifest
+          deck.SetKeyImage(k.BoardPage, k.Slot, null);
           break;
         }
         ThreadPool.QueueUserWorkItem(_ => {
@@ -722,7 +681,6 @@ sealed class ElgatoHost : IDeckPlugins {
       case "logMessage":
         PluginLog(plugin, payload != null ? S(payload, "message") : "");
         break;
-      // switchToProfile, setFeedback, setFeedbackLayout, setTriggerDescription: Stream Deck +, bỏ qua
     }
   }
 
@@ -736,7 +694,7 @@ sealed class ElgatoHost : IDeckPlugins {
         html = runtimes.Values.Where(r => r.Info.Runtime == "html" && r.Conn == null).ToList();
         foreach (var r in html) r.Loaded = true;
       }
-      foreach (var r in html) {  // Edge ẩn vừa mở (lại): nạp các plugin HTML đang cần
+      foreach (var r in html) {
         SendHost(new Dictionary<string, object> {
           { "event", "loadPlugin" }, { "uuid", r.Info.Uuid }, { "token", r.Token }, { "port", Port }, { "info", InfoJson(r.Info) },
           { "url", "/plugins/" + Uri.EscapeDataString(r.Info.Uuid) + "/" + r.Info.CodePath.Replace('\\', '/') } });
@@ -763,7 +721,6 @@ sealed class ElgatoHost : IDeckPlugins {
         { "deviceInfo", new Dictionary<string, object> { { "name", "CYD Deck" }, { "type", 9 },
                                                          { "size", new Dictionary<string, object> { { "columns", 4 }, { "rows", 2 } } } } } }));
       foreach (var text in pending) conn.Send(text);
-      // phím của plugin trên trang đang hiện
       int page = deck.VisiblePage;
       foreach (var k in KeysOn(page).Where(k => PluginOfActionUuid(k.Key.ActionUuid) == runtime.Info.Uuid).ToList()) {
         lock (gate) shown.Remove(k.Key.Context);
@@ -783,7 +740,7 @@ sealed class ElgatoHost : IDeckPlugins {
       lock (gate) inspectors[uuid] = conn;
       Runtime r;
       lock (gate) runtimes.TryGetValue(plugin, out r);
-      if (k == null) {  // phím chưa lưu: báo plugin như phím vừa hiện để nó dựng sẵn
+      if (k == null) {
         SendPlugin(r, new Dictionary<string, object> {
           { "action", action }, { "event", "willAppear" }, { "context", uuid }, { "device", DeviceId },
           { "payload", new Dictionary<string, object> {
@@ -838,7 +795,6 @@ sealed class ElgatoHost : IDeckPlugins {
     pi.Send(json.Serialize(message));
   }
 
-  // Cài đặt của phím: nhớ ngay (trang cài đặt gộp khi lưu), và ghi vào deck.json nếu phím đã có trong bộ phím
   void SaveSettings(string context, string settings) {
     lock (gate) settingsOverride[context] = settings;
     var k = Find(context);
@@ -850,8 +806,6 @@ sealed class ElgatoHost : IDeckPlugins {
       Log.Agent("Không lưu được cài đặt plugin: " + ex.Message);
     }
   }
-
-  // ---------- Property Inspector của phím chưa lưu ----------
 
   public void OpenDraft(string context, string actionUuid, int slot, string settings) {
     lock (gate) drafts[context] = new Draft { Context = context, ActionUuid = actionUuid, Slot = slot, Settings = settings };
@@ -894,7 +848,6 @@ sealed class ElgatoHost : IDeckPlugins {
     };
   }
 
-  // Đã lưu bộ phím: phím nháp nào đã thành phím thật thì Find thấy; bỏ nháp để không giữ plugin chạy thừa
   public void ClearDrafts() {
     List<Draft> gone;
     lock (gate) {
@@ -928,8 +881,6 @@ sealed class ElgatoHost : IDeckPlugins {
     Ensure();
   }
 
-  // ---------- log từng plugin: logs\plugin-<uuid>.log ----------
-
   static readonly object logGate = new object();
 
   public static string LogPath(string uuid) { return Path.Combine(Log.Dir, "plugin-" + uuid + ".log"); }
@@ -947,4 +898,4 @@ sealed class ElgatoHost : IDeckPlugins {
   }
 }
 
-}  // namespace CydAgent
+}

@@ -1,27 +1,3 @@
-// CYD PC Agent: chương trình ở khay hệ thống Windows, nói chuyện với bo CYD qua cổng COM của cáp USB. Ban đầu viết cho
-// trang Máy tính của firmware CYD-EEZ (số liệu như Task Manager: gói STATS, PROCS), nay phục vụ thêm firmware CYD Deck.
-// Không qua mạng, không cần cài gì thêm: dịch bằng csc.exe có sẵn trong .NET Framework 4 của Windows
-// (build.cmd), nên mã giữ ở cú pháp C# 5.
-//
-// Cách lấy số liệu tham khảo agent của PhoneBox (github.com/ersinkoc/phonebox, MIT) và Task Manager:
-//   CPU       PDH "% Processor Utility" (đúng con số Task Manager hiện), tốc độ từ "% Processor Performance"
-//   RAM       GlobalMemoryStatusEx
-//   GPU       NVML của driver NVIDIA (tải, nhiệt độ, VRAM); máy không có NVIDIA thì PDH "GPU Engine"
-//   Mạng      thống kê byte của các card mạng thật (Ethernet, Wi-Fi), bỏ card ảo
-//   Tiến trình NtQuerySystemInformation: một lần gọi lấy đủ mọi tiến trình (thời gian CPU, bộ nhớ riêng), không phải mở
-//             từng tiến trình như System.Diagnostics.Process; gom theo tên như thẻ Processes của Task Manager
-//
-// Giao thức (PC → bo, nhị phân, little-endian): A5 5A | loại 1 byte | độ dài 2 byte | dữ liệu | CRC-8 (đa thức 0x07)
-// tính trên loại + độ dài + dữ liệu. Chi tiết từng loại ở WriteHello/WriteStats/WriteProcs, bên bo ở src/app/pc_link.cpp.
-// Bo → PC là các dòng log chữ; dòng "[PC] ... xem=1 sx=0" cho biết trang Máy tính đang mở và cách sắp xếp tiến trình,
-// nên danh sách tiến trình chỉ được đo và gửi khi có người xem.
-//
-// Từ 18/11/2026 agent còn phục vụ firmware CYD Deck (..\..\firmware): bo trả lời bằng dòng "[DECK] ..." thì agent
-// chuyển sang chế độ Deck (DeckSync.cs: gửi bộ phím, ảnh, thanh tin; chạy lệnh khi bấm phím) và có trang cài đặt phím
-// (DeckWeb.cs, web\index.html). Bo chạy CYD-EEZ thì vẫn như cũ.
-//
-// Cổng COM chỉ một chương trình mở được: tools/cyd.ps1 gửi "pause" tới 127.0.0.1:47830 trước khi nạp hay đọc log, rồi
-// "resume" khi xong. Menu ở khay hệ thống cũng có mục tạm nhả cổng.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -92,10 +68,6 @@ static class Native {
                                                          IntPtr buffer);
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Bộ đếm hiệu năng (PDH). Dùng tên tiếng Anh (PdhAddEnglishCounter): tên hiện trong Performance Monitor đổi theo ngôn
-// ngữ Windows. Bộ đếm dạng "tốc độ" cần hai lần thu mới có số, nên lần đầu trả về null.
-// ---------------------------------------------------------------------------------------------------------------
 sealed class Pdh {
   IntPtr query = IntPtr.Zero;
 
@@ -121,7 +93,6 @@ sealed class Pdh {
     return v.doubleValue;
   }
 
-  // Bộ đếm có dấu *: mọi thể hiện (tên, giá trị)
   public static List<KeyValuePair<string, double>> Array(IntPtr counter) {
     var list = new List<KeyValuePair<string, double>>();
     if (counter == IntPtr.Zero) return list;
@@ -134,7 +105,7 @@ sealed class Pdh {
     IntPtr buffer = Marshal.AllocHGlobal((int)size);
     try {
       if (Native.PdhGetFormattedCounterArrayW(counter, format, ref size, ref count, buffer) != 0) return list;
-      int itemSize = IntPtr.Size + 16;  // PDH_FMT_COUNTERVALUE_ITEM_W: tên (con trỏ), rồi PDH_FMT_COUNTERVALUE
+      int itemSize = IntPtr.Size + 16;
       for (int i = 0; i < count; i++) {
         IntPtr item = buffer + i * itemSize;
         string name = Marshal.PtrToStringUni(Marshal.ReadIntPtr(item));
@@ -150,9 +121,6 @@ sealed class Pdh {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// NVML: thư viện quản lý GPU đi kèm driver NVIDIA (C:\Windows\System32\nvml.dll). Rẻ hơn hẳn gọi nvidia-smi mỗi giây.
-// ---------------------------------------------------------------------------------------------------------------
 static class Nvml {
   [StructLayout(LayoutKind.Sequential)]
   struct Utilization {
@@ -162,7 +130,6 @@ static class Nvml {
   struct Memory {
     public ulong total, free, used;
   }
-  // Bản 2 tách phần driver giữ riêng ra khỏi "used", khớp với nvidia-smi và Task Manager
   [StructLayout(LayoutKind.Sequential)]
   struct Memory2 {
     public uint version;
@@ -198,7 +165,7 @@ static class Nvml {
           } else {
             device = IntPtr.Zero;
           }
-        } catch (Exception) {  // máy không có NVIDIA: không có nvml.dll
+        } catch (Exception) {
           device = IntPtr.Zero;
         }
       }
@@ -223,7 +190,7 @@ static class Nvml {
           totalMb = m2.total >> 20;
           return true;
         }
-      } catch (EntryPointNotFoundException) {  // driver cũ
+      } catch (EntryPointNotFoundException) {
       }
       memoryV2 = false;
     }
@@ -236,19 +203,16 @@ static class Nvml {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Tiến trình
-// ---------------------------------------------------------------------------------------------------------------
 sealed class ProcGroup {
   public string Name;
-  public double Cpu;   // %
-  public ulong Mem;    // byte, bộ nhớ riêng đang dùng (cột Memory của Task Manager)
+  public double Cpu;
+  public ulong Mem;
   public int Count;
 }
 
 sealed class ProcSampler {
   sealed class Entry {
-    public long Create, Time;  // 100 ns
+    public long Create, Time;
     public string Key;
     public bool Seen;
   }
@@ -258,9 +222,9 @@ sealed class ProcSampler {
   IntPtr buffer = IntPtr.Zero;
   int bufferSize = 0;
   readonly Dictionary<long, Entry> entries = new Dictionary<long, Entry>();
-  readonly Dictionary<string, string> titles = new Dictionary<string, string>();  // tên file → tên hiển thị
+  readonly Dictionary<string, string> titles = new Dictionary<string, string>();
   long lastTicks;
-  public int Count;  // số tiến trình lần đo gần nhất
+  public int Count;
 
   bool Query() {
     if (buffer == IntPtr.Zero) {
@@ -279,10 +243,6 @@ sealed class ProcSampler {
     return false;
   }
 
-  // Tên như Task Manager: phần "Mô tả" của file chạy (Google Chrome, Visual Studio Code...), không có thì tên file.
-  // Đọc một lần cho mỗi tên file rồi nhớ.
-  // Tiến trình của hệ thống (svchost chạy bằng tài khoản SYSTEM...) có cái không mở được: thử lại với tiến trình khác
-  // cùng tên, tối đa vài lần, rồi mới thôi.
   readonly Dictionary<string, int> titleTries = new Dictionary<string, int>();
   const int TITLE_TRIES = 12;
 
@@ -295,7 +255,7 @@ sealed class ProcSampler {
       title = image.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? image.Substring(0, image.Length - 4) : image;
     }
     bool done = tries >= TITLE_TRIES;
-    IntPtr handle = done ? IntPtr.Zero : Native.OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, false, (uint)pid);
+    IntPtr handle = done ? IntPtr.Zero : Native.OpenProcess(0x1000 , false, (uint)pid);
     if (handle != IntPtr.Zero) {
       done = true;
       try {
@@ -315,12 +275,11 @@ sealed class ProcSampler {
     return title;
   }
 
-  // Đo một lượt. scale: tỉ lệ đưa phần trăm theo thời gian CPU về thang "% Processor Utility" của Task Manager.
   public List<ProcGroup> Sample(double scale) {
     var groups = new Dictionary<string, ProcGroup>();
     if (!Query()) return new List<ProcGroup>();
     long now = Stopwatch.GetTimestamp();
-    double elapsed = lastTicks == 0 ? 0 : (now - lastTicks) * 1e7 / Stopwatch.Frequency;  // 100 ns
+    double elapsed = lastTicks == 0 ? 0 : (now - lastTicks) * 1e7 / Stopwatch.Frequency;
     lastTicks = now;
     double capacity = elapsed * Environment.ProcessorCount;
     foreach (var e in entries.Values) e.Seen = false;
@@ -330,10 +289,10 @@ sealed class ProcSampler {
       IntPtr p = buffer + offset;
       int next = Marshal.ReadInt32(p, 0);
       long pid = Marshal.ReadIntPtr(p, 80).ToInt64();
-      if (pid != 0) {  // bỏ "System Idle Process"
+      if (pid != 0) {
         count++;
         long create = Marshal.ReadInt64(p, 32);
-        long time = Marshal.ReadInt64(p, 40) + Marshal.ReadInt64(p, 48);  // thời gian người dùng + nhân
+        long time = Marshal.ReadInt64(p, 40) + Marshal.ReadInt64(p, 48);
         ulong privateWs = (ulong)Marshal.ReadInt64(p, 8);
         Entry e;
         double cpu = 0;
@@ -368,10 +327,6 @@ sealed class ProcSampler {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Mạng: tổng byte nhận/gửi của các card mạng thật đang chạy. Card ảo (Hyper-V, WSL, VPN...) bị bỏ vì lưu lượng của
-// chúng đi qua card thật, cộng vào sẽ đếm hai lần.
-// ---------------------------------------------------------------------------------------------------------------
 sealed class NetSampler {
   NetworkInterface[] adapters = new NetworkInterface[0];
   DateTime listedAt = DateTime.MinValue;
@@ -395,7 +350,7 @@ sealed class NetSampler {
       adapters = new NetworkInterface[0];
     }
     listedAt = DateTime.UtcNow;
-    lastIn = lastOut = -1;  // danh sách đổi: lượt này chưa có số
+    lastIn = lastOut = -1;
   }
 
   public void Sample(out uint down, out uint up) {
@@ -422,16 +377,13 @@ sealed class NetSampler {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Số liệu mỗi giây
-// ---------------------------------------------------------------------------------------------------------------
 sealed class Stats {
-  public double Cpu;          // %
-  public int CpuMhz;          // 0: không đọc được
-  public double Gpu = -1;     // %, -1: không có
-  public int GpuTemp = -1;    // °C
+  public double Cpu;
+  public int CpuMhz;
+  public double Gpu = -1;
+  public int GpuTemp = -1;
   public ulong RamUsedMb, RamTotalMb, VramUsedMb, VramTotalMb;
-  public uint Down, Up;       // byte/giây
+  public uint Down, Up;
   public ulong UptimeS;
   public int Procs;
 }
@@ -442,7 +394,7 @@ sealed class Sampler {
   long lastIdle = -1, lastKernel, lastUser;
   public readonly ProcSampler Procs = new ProcSampler();
   readonly NetSampler net = new NetSampler();
-  double timeCpu;  // % CPU tính theo thời gian (GetSystemTimes), để quy đổi phần trăm của từng tiến trình
+  double timeCpu;
 
   public Sampler() {
     cpuUtility = pdh.Add(@"\Processor Information(_Total)\% Processor Utility");
@@ -458,7 +410,7 @@ sealed class Sampler {
     if (!Native.GetSystemTimes(out idle, out kernel, out user)) return null;
     double? result = null;
     if (lastIdle >= 0) {
-      long total = (kernel - lastKernel) + (user - lastUser);  // thời gian nhân đã gồm thời gian rảnh
+      long total = (kernel - lastKernel) + (user - lastUser);
       if (total > 0) result = Math.Max(0, Math.Min(100, (total - (idle - lastIdle)) * 100.0 / total));
     }
     lastIdle = idle;
@@ -467,7 +419,6 @@ sealed class Sampler {
     return result;
   }
 
-  // Tải GPU như Task Manager khi không có NVML: cộng mọi tiến trình theo từng engine, lấy engine bận nhất
   double? GpuFromEngines() {
     var engines = new Dictionary<string, double>();
     foreach (var item in Pdh.Array(gpuEngine)) {
@@ -481,7 +432,6 @@ sealed class Sampler {
     return Math.Min(100, engines.Values.Max());
   }
 
-  // light: chỉ CPU và RAM (bo Deck không hiện GPU, mạng, tốc độ CPU), đỡ gọi NVML/PDH GPU mỗi giây
   public Stats Sample(bool light = false) {
     pdh.Collect();
     var s = new Stats();
@@ -518,19 +468,15 @@ sealed class Sampler {
     return s;
   }
 
-  // Tỉ lệ đưa % CPU theo thời gian về % Processor Utility: CPU chạy turbo thì Task Manager hiện số cao hơn thời gian thật
   public double ProcScale(Stats s) {
     if (timeCpu < 1 || s.Cpu <= 0) return 1;
     return Math.Max(0.5, Math.Min(2.5, s.Cpu / timeCpu));
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Gói tin gửi xuống bo
-// ---------------------------------------------------------------------------------------------------------------
 static class Frames {
   public const byte HELLO = 0x01, STATS = 0x02, PROCS = 0x03;
-  public const int PROC_ROWS = 8;  // bằng PC_PROC_ROWS bên bo
+  public const int PROC_ROWS = 8;
   public const int NAME_BYTES = 47;
 
   static byte Crc8(byte[] data, int start, int length) {
@@ -554,7 +500,6 @@ static class Frames {
     return frame;
   }
 
-  // Chuỗi UTF-8 cắt gọn tới `max` byte, không cắt giữa một ký tự
   static byte[] Utf8(string text, int max) {
     byte[] bytes = Encoding.UTF8.GetBytes(text ?? "");
     if (bytes.Length <= max) return bytes;
@@ -571,7 +516,6 @@ static class Frames {
     w.Write(bytes);
   }
 
-  // HELLO: phiên bản giao thức (1), tên máy
   public static byte[] Hello() {
     using (var ms = new MemoryStream())
     using (var w = new BinaryWriter(ms)) {
@@ -582,9 +526,6 @@ static class Frames {
     }
   }
 
-  // STATS (41 byte): CPU ×10, MHz, GPU ×10 (0xFFFF: không có), nhiệt GPU (0xFF: không có), RAM dùng/tổng (MB),
-  // VRAM dùng/tổng (MB, tổng 0: không có), tải về/tải lên (byte/giây), thời gian bật máy (giây), giờ UTC (Unix), số
-  // tiến trình
   public static byte[] Stats(Stats s) {
     using (var ms = new MemoryStream())
     using (var w = new BinaryWriter(ms)) {
@@ -606,7 +547,6 @@ static class Frames {
     }
   }
 
-  // PROCS: cách sắp xếp (0 CPU, 1 bộ nhớ), số dòng, rồi mỗi dòng: CPU ×10, bộ nhớ (KB), số tiến trình cùng tên, tên
   public static byte[] Procs(List<ProcGroup> groups, int sort) {
     var top = (sort == 1 ? groups.OrderByDescending(g => g.Mem) : groups.OrderByDescending(g => g.Cpu).ThenByDescending(g => g.Mem))
                   .Take(PROC_ROWS)
@@ -627,10 +567,6 @@ static class Frames {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Nhật ký: logs\agent.log (agent) và logs\board.log (log Serial của bo, vì agent đang giữ cổng COM). Đầy 1 MB thì đổi
-// sang *.old.log.
-// ---------------------------------------------------------------------------------------------------------------
 static class Log {
   static readonly object gate = new object();
   public static string Dir;
@@ -655,9 +591,6 @@ static class Log {
   public static void Board(string line) { Append("board", line); }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Cổng COM tới bo
-// ---------------------------------------------------------------------------------------------------------------
 sealed class Link {
   readonly object gate = new object();
   readonly string fixedPort;
@@ -665,12 +598,12 @@ sealed class Link {
   Thread reader;
   DateTime openedAt, helloAt, searchAt = DateTime.MinValue, pausedUntil = DateTime.MinValue;
   readonly Dictionary<string, DateTime> notCyd = new Dictionary<string, DateTime>();
-  public volatile bool Confirmed;  // bo đã trả lời (firmware có trang Máy tính)
-  public volatile bool Viewing;    // trang Máy tính đang mở trên bo
-  public volatile int Sort;        // 0: theo CPU, 1: theo bộ nhớ
-  public volatile bool WantProcs;  // bo vừa mở trang hay đổi cách sắp xếp: gửi danh sách ngay
-  public volatile bool IsDeck;     // bo chạy firmware CYD Deck (trả lời "[DECK] ...")
-  public Action<string> DeckLine;  // mỗi dòng "[DECK] ..." của bo (luồng đọc cổng COM)
+  public volatile bool Confirmed;
+  public volatile bool Viewing;
+  public volatile int Sort;
+  public volatile bool WantProcs;
+  public volatile bool IsDeck;
+  public Action<string> DeckLine;
   public Action Disconnected;
   public string PortName = "";
   public string Status = I18n.T("link.searching");
@@ -692,9 +625,6 @@ sealed class Link {
     searchAt = DateTime.MinValue;
   }
 
-  // Tìm cổng của chip USB-serial trên bo theo mã hãng USB, như tools/cyd.ps1: WCH (CH340/CH9102, 1A86), Silabs (CP210x,
-  // 10C4), Espressif (303A). Trước 18/11/2026 lọc theo tên có "USB Serial" nên agent mở nhầm cổng COM của điện thoại
-  // Samsung (VID 04E8, "USB Serial Device") và gửi gói chào vào đó.
   static List<string> CandidatePorts() {
     var result = new List<string>();
     try {
@@ -718,7 +648,7 @@ sealed class Link {
     port = null;
     Confirmed = false;
     Viewing = false;
-    baudIndex = 0;  // lần mở sau dò lại từ 921600 (đường đổi tốc độ trong Tick tăng lại sau khi đóng)
+    baudIndex = 0;
     bool wasDeck = IsDeck;
     IsDeck = false;
     if (wasDeck && Disconnected != null) Disconnected();
@@ -729,14 +659,13 @@ sealed class Link {
     }
   }
 
-  // Deck nói ở 921600 baud, CYD-EEZ ở 115200: mở cổng ở tốc độ đầu, không ai trả lời sau vài giây thì thử tốc độ sau
   static readonly int[] BAUDS = { 921600, 115200 };
   int baudIndex = 0;
   public int Baud { get { return BAUDS[baudIndex]; } }
 
   void Open(string name) {
     var sp = new SerialPort(name, BAUDS[baudIndex], Parity.None, 8, StopBits.One);
-    sp.DtrEnable = false;  // DTR/RTS nối vào chân EN/IO0 của ESP32: bật lên là bo khởi động lại
+    sp.DtrEnable = false;
     sp.RtsEnable = false;
     sp.Handshake = Handshake.None;
     sp.ReadTimeout = 500;
@@ -763,7 +692,7 @@ sealed class Link {
       } catch (TimeoutException) {
         continue;
       } catch (Exception) {
-        return;  // cổng đã đóng
+        return;
       }
       for (int i = 0; i < n; i++) {
         byte b = buffer[i];
@@ -778,7 +707,6 @@ sealed class Link {
     }
   }
 
-  // Dòng "[PC] ... xem=1 sx=0" của bo (src/app/pc_link.cpp)
   void OnLine(string text) {
     Log.Board(text);
     if (text.Contains("[DECK] ")) {
@@ -806,7 +734,6 @@ sealed class Link {
     }
   }
 
-  // Gọi mỗi giây: mở cổng nếu chưa mở, chào bo cho tới khi bo trả lời
   public void Tick() {
     lock (gate) {
       if (Paused) return;
@@ -832,7 +759,6 @@ sealed class Link {
       if (!Confirmed) {
         double waited = (DateTime.UtcNow - openedAt).TotalSeconds;
         if (baudIndex + 1 < BAUDS.Length && waited > 4) {
-          // không phải bo Deck ở 921600: mở lại ở tốc độ sau (CYD-EEZ) ngay, không phạt 1 phút
           string name = PortName;
           Close("không trả lời ở " + BAUDS[baudIndex] + " baud, thử " + BAUDS[baudIndex + 1]);
           baudIndex++;
@@ -840,7 +766,6 @@ sealed class Link {
           return;
         }
         if (waited > 20) {
-          // Cổng không trả lời: thiết bị khác, hoặc firmware cũ chưa có trang Máy tính. Thử lại sau 1 phút.
           notCyd[PortName] = DateTime.UtcNow.AddSeconds(60);
           Close("không có trả lời, có thể là firmware chưa có trang Máy tính");
           baudIndex = 0;
@@ -853,7 +778,7 @@ sealed class Link {
         }
       } else {
         Status = string.Format(I18n.T(IsDeck ? "link.deck" : "link.board"), PortName);
-        if ((DateTime.UtcNow - helloAt).TotalSeconds >= 10) {  // để bo vừa khởi động lại biết tên máy
+        if ((DateTime.UtcNow - helloAt).TotalSeconds >= 10) {
           helloAt = DateTime.UtcNow;
           Send(Frames.Hello());
         }
@@ -879,11 +804,6 @@ sealed class Link {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Điều khiển cục bộ (chỉ 127.0.0.1): "pause <giây>", "resume", "status", "quit", "ui" (mở trang cài đặt Deck),
-// "url" (địa chỉ trang cài đặt kèm mã), "plugin <file>" (cài plugin Stream Deck từ file .streamDeckPlugin hay
-// manifest.json, như nút Cài plugin của trang cài đặt). tools/cyd.ps1 dùng để nhả cổng COM.
-// ---------------------------------------------------------------------------------------------------------------
 sealed class Control {
   public const int PORT = 47830;
   readonly Link link;
@@ -928,10 +848,10 @@ sealed class Control {
           } else if (parts[0] == "resume") {
             link.Resume();
             writer.WriteLine("ok");
-          } else if (parts[0] == "ui") {  // mở trang cài đặt Deck
+          } else if (parts[0] == "ui") {
             openUi();
             writer.WriteLine("ok");
-          } else if (parts[0] == "url" && uiUrl != null) {  // địa chỉ trang cài đặt (có mã), để thử từ máy này
+          } else if (parts[0] == "url" && uiUrl != null) {
             writer.WriteLine(uiUrl());
           } else if (parts[0] == "plugin" && line.Length > 7) {
             try {
@@ -952,9 +872,6 @@ sealed class Control {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Ứng dụng: icon ở khay hệ thống, luồng đo mỗi giây
-// ---------------------------------------------------------------------------------------------------------------
 sealed class AgentApp : ApplicationContext {
   readonly Link link;
   readonly DeckSync deck;
@@ -975,8 +892,8 @@ sealed class AgentApp : ApplicationContext {
       g.SmoothingMode = SmoothingMode.AntiAlias;
       using (var pen = new Pen(color, 2f))
       using (var brush = new SolidBrush(color)) {
-        g.DrawRectangle(pen, 1.5f, 2f, 13f, 9f);  // màn hình
-        g.FillRectangle(brush, 6, 12, 4, 2);       // chân
+        g.DrawRectangle(pen, 1.5f, 2f, 13f, 9f);
+        g.FillRectangle(brush, 6, 12, 4, 2);
         g.FillRectangle(brush, 4, 14, 8, 1);
       }
       IntPtr handle = bmp.GetHicon();
@@ -1020,8 +937,6 @@ sealed class AgentApp : ApplicationContext {
         bool deckMode = link.Confirmed && link.IsDeck;
         Stats stats = sampler.Sample(deckMode);
         link.Tick();
-        // Danh sách tiến trình: mỗi giây khi trang Máy tính đang mở, 5 giây một lần khi không (chỉ để đếm số tiến
-        // trình). Bo Deck không dùng: không đo (NtQuerySystemInformation cả nghìn tiến trình mỗi lần).
         bool want = link.Confirmed && !link.IsDeck && (link.Viewing || link.WantProcs);
         if (!deckMode && (want || ++procsAge >= 5)) {
           lastProcs = sampler.Procs.Sample(sampler.ProcScale(stats));
@@ -1053,7 +968,6 @@ sealed class AgentApp : ApplicationContext {
     }
   }
 
-  // Menu khay theo ngôn ngữ đang chọn (dựng lại khi đổi ngôn ngữ trong trang cài đặt)
   void BuildMenu() {
     var menu = new ContextMenuStrip();
     menu.Items.Add(statusItem);
@@ -1073,7 +987,6 @@ sealed class AgentApp : ApplicationContext {
     }
   }
 
-  // Hộp chọn file cho trang cài đặt (luồng giao diện, STA). kind: "exe", "image", "any"
   string Pick(string kind) {
     string result = null;
     ui.Send(_ => {
@@ -1099,7 +1012,7 @@ sealed class AgentApp : ApplicationContext {
   bool? shownOnline;
 
   void ShowStatus(string status, bool online) {
-    if (status == shownStatus && online == shownOnline) return;  // đặt lại mỗi giây làm khay vẽ lại, tốn handle GDI
+    if (status == shownStatus && online == shownOnline) return;
     shownStatus = status;
     shownOnline = online;
     statusItem.Text = status;
@@ -1112,7 +1025,7 @@ sealed class AgentApp : ApplicationContext {
 
   void Quit() {
     running = false;
-    plugins.Shutdown();  // tắt tiến trình của các plugin
+    plugins.Shutdown();
     link.Shutdown();
     tray.Visible = false;
     Log.Agent("Thoát");
@@ -1121,7 +1034,6 @@ sealed class AgentApp : ApplicationContext {
 }
 
 static class Program {
-  // --dump <file>: đo hai lượt cách nhau 1 giây rồi ghi số liệu ra file và thoát (để kiểm tra, không mở cổng COM).
   static void Dump(string path) {
     var sampler = new Sampler();
     sampler.Procs.Sample(1);
@@ -1155,7 +1067,7 @@ static class Program {
     string port = null;
     bool openUi = false;
     for (int i = 0; i < args.Length; i++) {
-      if (args[i] == "--deck-hashes" && i + 1 < args.Length) {  // mã ảnh từng phím của deck.json (kiểm tra vẽ ảnh ổn định)
+      if (args[i] == "--deck-hashes" && i + 1 < args.Length) {
         var layout = DeckConfig.Build(DeckConfig.Load());
         var sb = new StringBuilder();
         sb.AppendLine("layout " + layout.Crc.ToString("x8"));
@@ -1172,7 +1084,7 @@ static class Program {
     }
     bool created;
     using (var mutex = new Mutex(true, "CydPcAgent", out created)) {
-      if (!created) return;  // đã có một agent đang chạy
+      if (!created) return;
       Application.EnableVisualStyles();
       Application.SetCompatibleTextRenderingDefault(false);
       var app = new AgentApp(port);
@@ -1182,4 +1094,4 @@ static class Program {
   }
 }
 
-}  // namespace CydAgent
+}

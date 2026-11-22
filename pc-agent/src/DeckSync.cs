@@ -1,11 +1,3 @@
-// CYD Deck: nói chuyện với bo đang chạy firmware CYD Deck (giao thức phiên bản 2 ở ..\..\firmware\src\deck\link.h).
-//   - Gửi bộ phím (LAYOUT_*) khi CRC bo báo khác bộ phím hiện tại, rồi những ảnh bo chưa có (IMG_*, nén RLE), mỗi gói
-//     chờ bo trả lời rồi mới gửi gói sau (bo xoá/ghi flash giữa chừng).
-//   - Thanh tin (INFO: giờ, CPU, RAM, nhạc đang phát), OBS, trạng thái phím (STATE): chỉ gửi khi đổi, INFO ít nhất 2 giây
-//     một lần để bo biết PC còn nối.
-//   - Bo báo nhấn/nhả phím ("xuong"/"len"/"huy"): lệnh thường chạy khi nhả (giữ ≥ 0,5 s thì chạy lệnh giữ), phím plugin
-//     chuyển nguyên keyDown/keyUp cho plugin (ElgatoHost.cs).
-//   - Ảnh plugin đặt lúc chạy (setImage) đi vào ô ảnh RAM của bo (KEY_IMAGE), chỉ cho trang đang hiện.
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -17,7 +9,6 @@ using System.Threading;
 
 namespace CydAgent {
 
-// Phía plugin của bộ phím (ElgatoHost.cs): DeckSync báo sự kiện của phím plugin qua đây
 interface IDeckPlugins {
   void KeyDown(int boardPage, int slot);
   void KeyUp(int boardPage, int slot);
@@ -41,7 +32,7 @@ sealed class DeckSync {
   volatile int visiblePage = -1;
   readonly Dictionary<int, DateTime> downAt = new Dictionary<int, DateTime>();
   readonly Dictionary<int, string> sentState = new Dictionary<int, string>();
-  readonly Dictionary<int, byte[]> ramImages = new Dictionary<int, byte[]>();  // ảnh RAM muốn có (trang*16+phím), null: xoá
+  readonly Dictionary<int, byte[]> ramImages = new Dictionary<int, byte[]>();
   readonly HashSet<int> ramDirty = new HashSet<int>();
   readonly Dictionary<int, string> pluginTitle = new Dictionary<int, string>();
   readonly Dictionary<int, bool> pluginOn = new Dictionary<int, bool>();
@@ -50,8 +41,8 @@ sealed class DeckSync {
   int stateAge;
   public readonly DeckMedia Media = new DeckMedia();
   public MediaSnapshot LastMedia = new MediaSnapshot();
-  public DeckObs Obs;            // gắn sau khi tạo (CydAgent.cs)
-  public IDeckPlugins Plugins;   // gắn sau khi tạo
+  public DeckObs Obs;
+  public IDeckPlugins Plugins;
   public volatile string Status = "";
   public volatile string LastPress = "";
 
@@ -65,7 +56,6 @@ sealed class DeckSync {
   public bool Connected { get { return connected; } }
   public int VisiblePage { get { return visiblePage; } }
 
-  // Bộ phím mới từ trang cài đặt (hay ảnh tĩnh của plugin vừa có): dựng gói và ảnh rồi gửi xuống bo
   public void Apply(DeckConfigData config) {
     var built = DeckConfig.Build(config);
     lock (gate) {
@@ -81,8 +71,6 @@ sealed class DeckSync {
     wake.Set();
   }
 
-  // ---------- dòng log của bo (luồng đọc cổng COM) ----------
-
   public void OnLine(string text) {
     int at = text.IndexOf("[DECK] ", StringComparison.Ordinal);
     if (at < 0) return;
@@ -92,7 +80,7 @@ sealed class DeckSync {
     if (parts.Length >= 2) int.TryParse(parts[1], out a);
     if (parts.Length >= 3) int.TryParse(parts[2], out b);
     switch (parts[0]) {
-      case "chao":  // chao <phiên bản> <ảnh có>/<ô> <crc bộ phím> <tên máy>
+      case "chao":
         if (parts.Length >= 4) {
           if (a < 2) {
             Status = I18n.T("sync.old_firmware");
@@ -142,8 +130,6 @@ sealed class DeckSync {
     Status = "";
   }
 
-  // ---------- phím ----------
-
   void KeyDown(int page, int slot) {
     lock (gate) downAt[page * 16 + slot] = DateTime.UtcNow;
     var key = Layout.KeyAt(page, slot);
@@ -160,7 +146,7 @@ sealed class DeckSync {
     var key = Layout.KeyAt(page, slot);
     if (key == null) return;
     if (key.Kind == "plugin") {
-      if (Plugins != null) Plugins.KeyUp(page, slot);  // Elgato luôn có keyUp sau keyDown, kể cả khi huỷ
+      if (Plugins != null) Plugins.KeyUp(page, slot);
       return;
     }
     if (cancelled) return;
@@ -182,7 +168,7 @@ sealed class DeckSync {
       ok = true;
       LastPress = DateTime.Now.ToString("HH:mm:ss") + " " + name + ": " + I18n.T("press.done");
       if (key.Kind == "toggle" || !string.IsNullOrEmpty(key.Live)) {
-        Thread.Sleep(80);  // Windows / OBS cập nhật trạng thái
+        Thread.Sleep(80);
         SendStates(true);
       }
     } catch (Exception ex) {
@@ -198,7 +184,7 @@ sealed class DeckSync {
 
   void PageShown(int page) {
     int previous = visiblePage;
-    if (page == previous) return;  // bo nhắc lại trang đang hiện mỗi lần chào (~10 s): không phải đổi trang
+    if (page == previous) return;
     visiblePage = page;
     lock (gate) {
       foreach (var id in ramImages.Keys.Where(id => id / 16 == page).ToList()) ramDirty.Add(id);
@@ -208,9 +194,6 @@ sealed class DeckSync {
     wake.Set();
   }
 
-  // ---------- phím plugin: ảnh, nhãn, trạng thái lúc chạy ----------
-
-  // Ảnh 72×72 RGB565 đảo byte cho phím, giữ trong RAM của bo; null: về ảnh của bộ phím
   public void SetKeyImage(int page, int slot, byte[] px) {
     int id = page * 16 + slot;
     lock (gate) {
@@ -224,7 +207,6 @@ sealed class DeckSync {
     wake.Set();
   }
 
-  // Nhãn lúc chạy (null: nhãn của bộ phím) và trạng thái bật/tắt của phím plugin
   public void SetKeyTitle(int page, int slot, string title) {
     lock (gate) {
       if (title == null) pluginTitle.Remove(page * 16 + slot);
@@ -246,8 +228,6 @@ sealed class DeckSync {
     }
     return true;
   }
-
-  // ---------- mỗi giây (luồng đo) ----------
 
   public void Tick(Stats s) {
     if (!connected) return;
@@ -281,10 +261,9 @@ sealed class DeckSync {
         obsAt = DateTime.UtcNow;
       }
     }
-    SendStates(++stateAge >= 10);  // gửi lại cả bộ 10 giây một lần (bo vừa khởi động lại)
+    SendStates(++stateAge >= 10);
   }
 
-  // Trạng thái bật/tắt và nhãn lúc chạy của mọi phím có nguồn trạng thái; chỉ gửi phím đổi (all: gửi hết)
   void SendStates(bool all) {
     if (!connected) return;
     var current = Layout;
@@ -348,8 +327,6 @@ sealed class DeckSync {
     }
   }
 
-  // ---------- đồng bộ bộ phím và ảnh (luồng riêng) ----------
-
   void Worker() {
     while (true) {
       wake.WaitOne(2000);
@@ -358,7 +335,7 @@ sealed class DeckSync {
         if (syncWanted) {
           syncWanted = false;
           if (!Sync()) {
-            syncWanted = true;  // thử lại sau vài giây
+            syncWanted = true;
             Thread.Sleep(3000);
             continue;
           }
@@ -407,7 +384,7 @@ sealed class DeckSync {
     var watch = System.Diagnostics.Stopwatch.StartNew();
     foreach (var pair in current.Images) {
       index++;
-      if (!ReferenceEquals(current, Layout)) return true;  // bộ phím vừa đổi: lượt sau gửi bộ mới
+      if (!ReferenceEquals(current, Layout)) return true;
       Status = string.Format(I18n.T("sync.images"), index, current.Images.Count);
       int result = Upload(pair.Key, pair.Value);
       if (result < 0) {
@@ -422,7 +399,6 @@ sealed class DeckSync {
     return true;
   }
 
-  // 1: đã gửi; 0: bo có sẵn; -1: lỗi
   int Upload(uint hash, byte[] px) {
     string id = hash.ToString("x8");
     link.Send(Frames.Frame(IMG_BEGIN, BitConverter.GetBytes(hash)));
@@ -433,7 +409,7 @@ sealed class DeckSync {
       var payload = new byte[7 + chunk.Data.Length];
       BitConverter.GetBytes(hash).CopyTo(payload, 0);
       BitConverter.GetBytes((ushort)chunk.Offset).CopyTo(payload, 4);
-      payload[6] = 1;  // RLE
+      payload[6] = 1;
       Buffer.BlockCopy(chunk.Data, 0, payload, 7, chunk.Data.Length);
       link.Send(Frames.Frame(IMG_DATA, payload));
       reply = Reply("anh " + id, 3000);
@@ -444,7 +420,6 @@ sealed class DeckSync {
     return reply != null && reply.EndsWith(" xong") ? 1 : -1;
   }
 
-  // Ảnh RAM của trang đang hiện: gửi cả ảnh (không chờ từng gói, bộ đệm nhận của bo 16 KB), chờ "ram <trang> <phím> ok"
   void SendRamImages() {
     while (connected) {
       int id = -1;
@@ -490,17 +465,14 @@ sealed class DeckSync {
   }
 }
 
-// Nén RLE theo điểm ảnh 16 bit, cùng định dạng với rle_decode của bo (firmware/src/deck/ramimg.h):
-//   n < 0x80: n + 1 điểm ảnh viết thẳng; n ≥ 0x80: một điểm ảnh lặp n − 0x7E lần (2..129)
 static class Rle {
   public sealed class Chunk {
-    public int Offset;  // vị trí (byte) của phần đã giải nén
+    public int Offset;
     public byte[] Data;
   }
 
   static bool Same(byte[] px, int a, int b) { return px[2 * a] == px[2 * b] && px[2 * a + 1] == px[2 * b + 1]; }
 
-  // Chia ảnh thành các gói: mỗi gói giải nén ra ≤ maxDecoded byte và nén ≤ maxEncoded byte
   public static List<Chunk> Chunks(byte[] px, int maxDecoded, int maxEncoded) {
     var list = new List<Chunk>();
     int pixels = px.Length / 2, i = 0;
@@ -520,7 +492,6 @@ static class Rle {
           i += run;
           continue;
         }
-        // viết thẳng tới khi gặp hai điểm giống nhau liền nhau, tối đa 128 điểm
         int lit = 1;
         while (i + lit < pixels && lit < 128 && lit < room && !(i + lit + 1 < pixels && Same(px, i + lit, i + lit + 1))) lit++;
         int fit = Math.Min(lit, (maxEncoded - outBuf.Count - 1) / 2);
@@ -538,4 +509,4 @@ static class Rle {
   }
 }
 
-}  // namespace CydAgent
+}

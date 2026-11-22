@@ -1,6 +1,3 @@
-// CYD Deck (firmware: ..\..\firmware): bộ phím người dùng đặt trong trang cài đặt (DeckWeb.cs), lưu ở
-// %APPDATA%\CydDeck\deck.json, cùng ảnh tải lên ở %APPDATA%\CydDeck\images\. Ở đây: mô hình dữ liệu, bộ phím mặc định,
-// dựng các gói LAYOUT_* và vẽ ảnh phím (KeyArt.cs) gửi xuống bo (DeckSync.cs).
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -11,69 +8,64 @@ using System.Web.Script.Serialization;
 
 namespace CydAgent {
 
-// Tên thuộc tính giữ nguyên trong deck.json và trong JavaScript của trang cài đặt (web\index.html).
 public sealed class DeckIcon {
-  public string Type { get; set; }   // "glyph" (Segoe Fluent Icons), "app" (icon của file .exe), "image" (ảnh tải lên), "none"
-  public string Glyph { get; set; }  // mã hex, ví dụ "E756"
-  public string Path { get; set; }   // app: đường dẫn file; image: tên file trong thư mục images
-  public string Bg { get; set; }     // "#RRGGBB" nền phím
-  public string Fg { get; set; }     // "#RRGGBB" màu icon chữ
+  public string Type { get; set; }
+  public string Glyph { get; set; }
+  public string Path { get; set; }
+  public string Bg { get; set; }
+  public string Fg { get; set; }
 }
 
 public sealed class DeckAction {
-  // "none", "run" (chạy chương trình), "open" (web, file, thư mục, ms-settings:...), "hotkey", "text", "media",
-  // "volume", "mic", "lock"
   public string Type { get; set; }
-  public string Path { get; set; }    // run
-  public string Args { get; set; }    // run
-  public string Dir { get; set; }     // run
-  public bool Admin { get; set; }     // run: quyền admin (Task Scheduler, AdminTasks trong DeckActions.cs)
-  public string Target { get; set; }  // open
-  public string Keys { get; set; }    // hotkey, ví dụ "Ctrl+Shift+Esc"
-  public string Text { get; set; }    // text
-  public string Cmd { get; set; }     // media: playpause/next/prev/stop; volume: up/down/mute; mic: mute
+  public string Path { get; set; }
+  public string Args { get; set; }
+  public string Dir { get; set; }
+  public bool Admin { get; set; }
+  public string Target { get; set; }
+  public string Keys { get; set; }
+  public string Text { get; set; }
+  public string Cmd { get; set; }
 }
 
 public sealed class DeckKeyConfig {
-  public string Kind { get; set; }  // "empty", "action", "toggle", "folder", "back", "plugin"
+  public string Kind { get; set; }
   public string Title { get; set; }
   public string TitleOn { get; set; }
   public DeckIcon Icon { get; set; }
   public DeckIcon IconOn { get; set; }
   public DeckAction Action { get; set; }
-  public DeckAction Hold { get; set; }  // giữ 0,5 s
-  public int Target { get; set; }       // folder: số thứ tự trang (trong deck.json) mở ra
-  public string Live { get; set; }      // "volume": âm lượng loa; "obsvolume": âm lượng nguồn OBS (Action.Target)
-  // plugin Stream Deck (ElgatoHost.cs)
-  public string ActionUuid { get; set; }  // UUID hành động trong manifest của plugin
-  public string Settings { get; set; }    // settings JSON của phím (setSettings của plugin)
-  public string Context { get; set; }     // mã cố định của phím cho plugin
-  public int State { get; set; }          // trạng thái hiện tại (setState)
+  public DeckAction Hold { get; set; }
+  public int Target { get; set; }
+  public string Live { get; set; }
+  public string ActionUuid { get; set; }
+  public string Settings { get; set; }
+  public string Context { get; set; }
+  public int State { get; set; }
 }
 
 public sealed class DeckPageConfig {
   public string Name { get; set; }
-  public int Parent { get; set; }  // -1: trang chính; thư mục: trang chứa phím mở nó
-  public string Bar { get; set; }  // "info", "obs"
+  public int Parent { get; set; }
+  public string Bar { get; set; }
   public List<DeckKeyConfig> Keys { get; set; }
 }
 
 public sealed class DeckConfigData {
   public int Version { get; set; }
-  public string Lang { get; set; }  // "vi", "en": trang cài đặt, agent và bo
+  public string Lang { get; set; }
   public string Name { get; set; }
   public List<DeckPageConfig> Pages { get; set; }
 }
 
-// Một bộ phím đã chuẩn hoá để gửi xuống bo: trang chính trước, thư mục sau (bo lật trang trong phần trang chính).
 public sealed class DeckLayout {
   public DeckConfigData Config;
-  public int[] BoardOf;   // trang trong deck.json → trang trên bo
-  public int[] ConfigOf;  // trang trên bo → trang trong deck.json
+  public int[] BoardOf;
+  public int[] ConfigOf;
   public int TopPages;
-  public List<byte[]> Frames = new List<byte[]>();  // LAYOUT_BEGIN, LAYOUT_PAGE..., LAYOUT_END
+  public List<byte[]> Frames = new List<byte[]>();
   public uint Crc;
-  public Dictionary<uint, byte[]> Images = new Dictionary<uint, byte[]>();  // mã ảnh → điểm ảnh RGB565 đảo byte
+  public Dictionary<uint, byte[]> Images = new Dictionary<uint, byte[]>();
 
   public DeckKeyConfig KeyAt(int boardPage, int slot) {
     if (boardPage < 0 || boardPage >= ConfigOf.Length || slot < 0 || slot >= 8) return null;
@@ -89,8 +81,6 @@ public static class DeckConfig {
   public static string ImagesDir { get { return System.IO.Path.Combine(Dir, "images"); } }
 
   public static JavaScriptSerializer Json() { return new JavaScriptSerializer { MaxJsonLength = int.MaxValue }; }
-
-  // ---------- đọc, ghi, chuẩn hoá ----------
 
   public static DeckConfigData Load() {
     try {
@@ -148,8 +138,6 @@ public static class DeckConfig {
     return c;
   }
 
-  // ---------- bộ phím mặc định (lần đầu chạy) ----------
-
   static DeckIcon G(string glyph, string bg) { return new DeckIcon { Type = "glyph", Glyph = glyph, Bg = bg, Fg = "#FFFFFF" }; }
   static DeckIcon App(string path) { return new DeckIcon { Type = "app", Path = path, Bg = "#1B1C22" }; }
   static DeckKeyConfig K(string kind, string title, DeckIcon icon, DeckAction action) {
@@ -158,7 +146,6 @@ public static class DeckConfig {
   static DeckKeyConfig Empty() { return new DeckKeyConfig { Kind = "empty" }; }
   static DeckAction Run(string path, bool admin) { return new DeckAction { Type = "run", Path = path, Args = "", Dir = "", Admin = admin }; }
 
-  // Bộ phím có phím OBS hay trang có thanh OBS: chỉ khi đó agent mới nối OBS
   public static bool UsesObs(DeckConfigData c) {
     if (c == null || c.Pages == null) return false;
     foreach (var page in c.Pages) {
@@ -221,8 +208,6 @@ public static class DeckConfig {
     };
   }
 
-  // ---------- gửi xuống bo ----------
-
   static byte[] Utf8(string text, int max) {
     byte[] bytes = Encoding.UTF8.GetBytes(text ?? "");
     if (bytes.Length <= max) return bytes;
@@ -250,7 +235,6 @@ public static class DeckConfig {
     }
   }
 
-  // Ảnh trạng thái `state` (0, 1) của phím plugin, vẽ từ manifest của plugin (ElgatoHost.cs gắn vào); null: không có
   public static Func<DeckKeyConfig, int, bool, byte[]> PluginArt;
 
   public static DeckLayout Build(DeckConfigData config) {
@@ -269,7 +253,7 @@ public static class DeckConfig {
       w.Write((byte)n);
       w.Write((byte)layout.TopPages);
       Text(w, config.Name, TITLE_BYTES);
-      w.Write((byte)(config.Lang == "vi" ? 0 : 1));  // ngôn ngữ chữ trên bo
+      w.Write((byte)(config.Lang == "vi" ? 0 : 1));
       w.Flush();
       payloads.Add(new KeyValuePair<byte, byte[]>(DeckSync.LAYOUT_BEGIN, ms.ToArray()));
     }
@@ -304,7 +288,6 @@ public static class DeckConfig {
         payloads.Add(new KeyValuePair<byte, byte[]>(DeckSync.LAYOUT_PAGE, ms.ToArray()));
       }
     }
-    // CRC-32 của các gói như bo lưu: loại + độ dài 2 byte + dữ liệu (link.cpp, keep_frame)
     uint crc = 0;
     foreach (var pair in payloads) {
       var head = new[] { pair.Key, (byte)(pair.Value.Length & 0xFF), (byte)(pair.Value.Length >> 8) };
@@ -316,8 +299,6 @@ public static class DeckConfig {
     layout.Frames.Add(Frames.Frame(DeckSync.LAYOUT_END, BitConverter.GetBytes(crc)));
     return layout;
   }
-
-  // ---------- ảnh phím ----------
 
   static readonly Dictionary<string, byte[]> renderCache = new Dictionary<string, byte[]>();
   static readonly object renderGate = new object();
@@ -354,7 +335,6 @@ public static class DeckConfig {
     return fallback;
   }
 
-  // Điểm ảnh RGB565 đảo byte của một phím (null: phím không có ảnh, bo chỉ vẽ nền và nhãn)
   public static byte[] Render(DeckIcon icon, bool withTitle, bool folder) {
     if (icon == null || icon.Type == null || icon.Type == "none") return null;
     string cacheKey = Json().Serialize(icon) + "|" + withTitle + "|" + folder;
@@ -391,7 +371,6 @@ public static class DeckConfig {
   }
 }
 
-// CRC-32 như zlib, giống store_crc32 của bo (src/deck/store.cpp)
 public static class Crc32 {
   static readonly uint[] table = MakeTable();
 
@@ -412,4 +391,4 @@ public static class Crc32 {
   }
 }
 
-}  // namespace CydAgent
+}

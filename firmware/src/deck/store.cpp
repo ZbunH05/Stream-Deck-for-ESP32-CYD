@@ -1,4 +1,3 @@
-// Xem store.h.
 #include "store.h"
 
 #include <Arduino.h>
@@ -8,10 +7,10 @@
 namespace {
 
 constexpr uint32_t LAYOUT_BYTES = 16384;
-constexpr uint32_t SLOT_BYTES = 12288;  // 3 sector 4 KB
+constexpr uint32_t SLOT_BYTES = 12288;
 constexpr uint32_t HEADER_BYTES = 16;
-constexpr uint32_t MAGIC_IMG = 0x474D4944;     // "DIMG"
-constexpr uint32_t MAGIC_LAYOUT = 0x59414C44;  // "DLAY"
+constexpr uint32_t MAGIC_IMG = 0x474D4944;
+constexpr uint32_t MAGIC_LAYOUT = 0x59414C44;
 constexpr int MAX_SLOTS = 220;
 
 struct Header {
@@ -19,14 +18,13 @@ struct Header {
 };
 
 const esp_partition_t *part = nullptr;
-const uint8_t *base = nullptr;  // đầu phân vùng trong không gian địa chỉ (mmap)
+const uint8_t *base = nullptr;
 esp_partition_mmap_handle_t handle;
 int slots = 0;
-uint32_t slot_hash[MAX_SLOTS];  // 0: ô trống
+uint32_t slot_hash[MAX_SLOTS];
 bool slot_valid[MAX_SLOTS];
 lv_image_dsc_t dsc[MAX_SLOTS];
 
-// ảnh đang nhận
 int pending = -1;
 uint32_t pending_hash = 0, pending_next = 0, pending_crc = 0;
 
@@ -54,7 +52,7 @@ void crc_init() {
   }
 }
 
-}  // namespace
+}
 
 uint32_t store_crc32(uint32_t crc, const uint8_t *data, size_t length) {
   crc = ~crc;
@@ -116,13 +114,13 @@ int store_begin(uint32_t hash, const uint32_t *keep, int keep_count) {
   for (int slot = 0; slot < slots && chosen < 0; slot++) {
     if (!slot_valid[slot]) chosen = slot;
   }
-  for (int slot = 0; slot < slots && chosen < 0; slot++) {  // đầy: lấy ô của ảnh bộ phím hiện tại không dùng
+  for (int slot = 0; slot < slots && chosen < 0; slot++) {
     bool used = false;
     for (int i = 0; i < keep_count && !used; i++) used = keep[i] == slot_hash[slot];
     if (!used) chosen = slot;
   }
   if (chosen < 0) return -1;
-  slot_valid[chosen] = false;  // LVGL không được đọc ô này trong lúc ghi
+  slot_valid[chosen] = false;
   slot_hash[chosen] = 0;
   if (esp_partition_erase_range(part, slot_offset(chosen), SLOT_BYTES) != ESP_OK) return -1;
   pending = chosen;
@@ -146,7 +144,6 @@ bool store_finish(uint32_t hash) {
   const int slot = pending;
   pending = -1;
   if (pending_next != STORE_IMG_BYTES || pending_crc != hash) return false;
-  // đọc lại qua mmap: chắc rằng cache không còn giữ nội dung cũ của ô
   if (store_crc32(0, base + slot_offset(slot) + HEADER_BYTES, STORE_IMG_BYTES) != hash) {
     Serial.println("[KHO] LOI: doc lai qua mmap khong khop (cache cu?)");
     return false;

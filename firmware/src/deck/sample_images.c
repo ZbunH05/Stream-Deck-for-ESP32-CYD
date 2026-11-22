@@ -1,5 +1,3 @@
-// Sinh bởi tools/make_sample_images.cs, đừng sửa tay. Ảnh phím mẫu 72×72 RGB565 đảo byte.
-// Icon: Material Symbols Rounded, Google, Apache License 2.0 (assets/fonts/MaterialSymbols-LICENSE.txt).
 #include "sample_images.h"
 
 static const uint8_t px_terminal[10368] = {

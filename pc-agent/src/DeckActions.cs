@@ -1,12 +1,3 @@
-// CYD Deck: chạy lệnh của phím (người dùng bấm trên bo, hay nút "Thử lệnh" trong trang cài đặt).
-//   run     chạy chương trình (tham số, thư mục làm việc); quyền admin qua Task Scheduler (AdminTasks)
-//   open    mở web, file, thư mục, ms-settings:... bằng ShellExecute
-//   hotkey  tổ hợp phím (SendInput), ví dụ "Ctrl+Shift+Esc", "Win+Shift+S"
-//   text    gõ một đoạn chữ (SendInput Unicode)
-//   media   phát/dừng, bài trước, bài sau, dừng (phím media)
-//   volume  to lên, nhỏ lại, tắt tiếng loa (Core Audio: đọc được trạng thái và % cho phím bật/tắt, chữ sống)
-//   mic     tắt/bật mic mặc định (Core Audio)
-//   lock    khoá máy
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,9 +10,6 @@ using System.Threading;
 
 namespace CydAgent {
 
-// ---------------------------------------------------------------------------------------------------------------
-// Bàn phím ảo (SendInput)
-// ---------------------------------------------------------------------------------------------------------------
 static class Input {
   [StructLayout(LayoutKind.Sequential)]
   struct KEYBDINPUT {
@@ -29,7 +17,6 @@ static class Input {
     public uint dwFlags, time;
     public IntPtr dwExtraInfo;
   }
-  // INPUT có union lớn nhất là MOUSEINPUT (32 byte trên x64): khai báo đủ cỡ để SendInput nhận đúng sizeof
   [StructLayout(LayoutKind.Explicit)]
   struct INPUT {
     [FieldOffset(0)] public uint type;
@@ -83,7 +70,6 @@ static class Input {
     throw new ArgumentException(string.Format(I18n.T("action.bad_key"), name));
   }
 
-  // "Ctrl+Shift+Esc": nhấn lần lượt, nhả theo thứ tự ngược
   public static void Hotkey(string combo) {
     var keys = (combo ?? "").Split('+').Select(s => s.Trim()).Where(s => s.Length > 0).Select(Parse).ToList();
     if (keys.Count == 0) throw new ArgumentException(I18n.T("action.no_hotkey"));
@@ -123,9 +109,6 @@ static class Input {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Core Audio: âm lượng, tắt tiếng của loa và mic mặc định
-// ---------------------------------------------------------------------------------------------------------------
 static class Audio {
   [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
   class MMDeviceEnumeratorCom {
@@ -162,9 +145,6 @@ static class Audio {
 
   const int RENDER = 0, CAPTURE = 1, MULTIMEDIA = 1, CLSCTX_ALL = 23;
 
-  // Thiết bị mặc định đổi được bất cứ lúc nào (cắm tai nghe...), nên lấy lại 5 giây một lần; giữa hai lần dùng lại đối
-  // tượng cũ. Trước 19/11/2026 mỗi lần đọc (vài lần mỗi giây) tạo enumerator, device, endpoint mới mà không trả COM:
-  // agent phình dần handle và RAM.
   static readonly object gate = new object();
   static IMMDeviceEnumerator enumerator;
   static readonly IAudioEndpointVolume[] cached = new IAudioEndpointVolume[2];
@@ -235,30 +215,20 @@ static class Audio {
     float level;
     v.GetMasterVolumeLevelScalar(out level);
     Guid context = Guid.Empty;
-    float next = Math.Max(0, Math.Min(1, (float)Math.Round(level * 50 + delta) / 50f));  // bước 2 % như phím âm lượng
+    float next = Math.Max(0, Math.Min(1, (float)Math.Round(level * 50 + delta) / 50f));
     v.SetMasterVolumeLevelScalar(next, ref context);
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Quyền admin không hỏi UAC mỗi lần (thiết kế 18/11/2026): mỗi phím "run" có ô admin là một tác vụ trong
-// Task Scheduler (thư mục \CydDeck\), chạy bằng tài khoản của người dùng ở mức quyền cao nhất, không có trigger. Lưu
-// bộ phím thì tạo lại các tác vụ trong một lần chạy elevated (một hộp UAC); bấm phím chỉ là "schtasks /Run". Quyền
-// trên tác vụ: SYSTEM, Administrators và đúng người dùng này (đọc, chạy), không ai khác.
-// Chưa đăng ký (người dùng bấm "Không" ở UAC) thì phím chạy bằng runas: Windows hỏi UAC mỗi lần.
-// ---------------------------------------------------------------------------------------------------------------
 static class AdminTasks {
   const string FOLDER = "CydDeck";
   static string RecordPath { get { return Path.Combine(DeckConfig.Dir, "admin-tasks.txt"); } }
 
-  // Tên tác vụ theo nội dung lệnh: sửa lệnh là tác vụ mới. Từ 20/11/2026 lệnh không có thư mục làm việc chạy ở thư
-  // mục người dùng (trước đó Task Scheduler cho chạy ở System32), nên tên đổi theo để lần Lưu sau đăng ký lại.
   public static string NameOf(DeckAction a) {
     string dir = string.IsNullOrWhiteSpace(a.Dir) ? "<home>" : a.Dir;
     return Hash((a.Path ?? "") + "\n" + (a.Args ?? "") + "\n" + dir);
   }
 
-  // Tên theo cách cũ (thư mục trống), để phím vẫn chạy qua tác vụ đã đăng ký cho tới lần Lưu sau
   static string LegacyNameOf(DeckAction a) { return Hash((a.Path ?? "") + "\n" + (a.Args ?? "") + "\n" + (a.Dir ?? "")); }
 
   static string Hash(string spec) {
@@ -296,7 +266,6 @@ static class AdminTasks {
     return sb.ToString();
   }
 
-  // Đưa các tác vụ về đúng danh sách lệnh admin của bộ phím. Trả lời ngắn cho trang cài đặt.
   public static string Sync(IEnumerable<DeckAction> wanted) {
     var actions = wanted.GroupBy(NameOf).Select(g => g.First()).ToList();
     var names = new HashSet<string>(actions.Select(NameOf));
@@ -333,7 +302,7 @@ static class AdminTasks {
           return I18n.T("admin.failed");
         }
       }
-    } catch (System.ComponentModel.Win32Exception) {  // người dùng bấm "Không" ở hộp UAC
+    } catch (System.ComponentModel.Win32Exception) {
       return I18n.T("admin.declined");
     } finally {
       try { Directory.Delete(work, true); } catch (Exception) { }
@@ -343,7 +312,6 @@ static class AdminTasks {
     return string.Format(I18n.T("admin.done"), names.Count);
   }
 
-  // true: đã chạy qua tác vụ; false: chưa đăng ký hay chạy lỗi (người gọi dùng runas)
   public static bool Run(DeckAction a) {
     var registered = Registered();
     string name = registered.Contains(NameOf(a)) ? NameOf(a) : registered.Contains(LegacyNameOf(a)) ? LegacyNameOf(a) : null;
@@ -360,9 +328,6 @@ static class AdminTasks {
   }
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// Chạy một lệnh
-// ---------------------------------------------------------------------------------------------------------------
 static class DeckActions {
   public static void Run(DeckAction a) {
     if (a == null || a.Type == null || a.Type == "none") throw new InvalidOperationException(I18n.T("action.none"));
@@ -395,8 +360,6 @@ static class DeckActions {
     }
   }
 
-  // Thư mục làm việc của lệnh chạy chương trình: ô "Thư mục làm việc", để trống thì thư mục người dùng (C:\Users\<tên>),
-  // như khi mở PowerShell hay CMD từ menu Start; không phải thư mục của agent (pc-agent\bin)
   public static string WorkingDir(DeckAction a) {
     if (!string.IsNullOrWhiteSpace(a.Dir)) {
       string dir = Environment.ExpandEnvironmentVariables(a.Dir.Trim());
@@ -411,7 +374,7 @@ static class DeckActions {
     var info = new ProcessStartInfo(Environment.ExpandEnvironmentVariables(a.Path)) {
       Arguments = a.Args ?? "", UseShellExecute = true, WorkingDirectory = WorkingDir(a),
     };
-    if (a.Admin) info.Verb = "runas";  // chưa đăng ký tác vụ: Windows hỏi UAC
+    if (a.Admin) info.Verb = "runas";
     try {
       Process.Start(info);
     } catch (System.ComponentModel.Win32Exception ex) {
@@ -420,7 +383,6 @@ static class DeckActions {
     }
   }
 
-  // Trạng thái bật/tắt mà phím toggle hiện (null: lệnh này không có trạng thái đọc được)
   public static bool? StateOf(DeckAction a) {
     if (a == null) return null;
     if (a.Type == "mic") return Audio.Muted(true);
@@ -429,4 +391,4 @@ static class DeckActions {
   }
 }
 
-}  // namespace CydAgent
+}

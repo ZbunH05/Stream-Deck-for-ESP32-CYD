@@ -1,10 +1,3 @@
-// Plugin Stream Deck của Elgato: đọc manifest.json, cài (giải nén file .streamDeckPlugin), chạy tiến trình plugin.
-// Định dạng theo tài liệu SDK của Elgato (docs.elgato.com/streamdeck/sdk): thư mục <uuid>.sdPlugin có manifest.json với
-// UUID, Name, Actions (UUID, Name, Icon, States[Image, Title, ShowTitle], PropertyInspectorPath), CodePath / CodePathWin,
-// Nodejs (plugin Node.js), PropertyInspectorPath, OS.
-//
-// Plugin cài ở %APPDATA%\CydDeck\plugins\<uuid>.sdPlugin. Tiến trình plugin (.exe hay node) chạy trong một Job Object
-// "đóng là tắt": agent thoát (kể cả bị tắt ngang) thì mọi plugin tắt theo. Plugin HTML chạy trong Edge ẩn (ElgatoHost.cs).
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -28,9 +21,9 @@ public sealed class PluginAction {
   public string Name { get; set; }
   public string Tooltip { get; set; }
   public string Icon { get; set; }
-  public string PropertyInspector { get; set; }  // đường dẫn trong thư mục plugin
+  public string PropertyInspector { get; set; }
   public List<PluginState> States { get; set; }
-  public bool Keypad { get; set; }  // dùng được trên phím (không phải chỉ núm xoay của Stream Deck +)
+  public bool Keypad { get; set; }
 }
 
 public sealed class PluginInfo {
@@ -42,7 +35,7 @@ public sealed class PluginInfo {
   public string Category { get; set; }
   public string Folder { get; set; }
   public string CodePath { get; set; }
-  public string Runtime { get; set; }  // "exe", "node", "html"
+  public string Runtime { get; set; }
   public string PropertyInspector { get; set; }
   public List<PluginAction> Actions { get; set; }
   public bool Enabled { get; set; }
@@ -68,10 +61,8 @@ static class ElgatoPlugins {
     return d != null && d.TryGetValue(key, out v) ? v as ArrayList : null;
   }
 
-  // Đọc một thư mục .sdPlugin
   public static PluginInfo Read(string folder) {
     byte[] raw = File.ReadAllBytes(Path.Combine(folder, "manifest.json"));
-    // Plugin tải từ Elgato Marketplace có manifest mã hoá, mở đầu bằng "ELGATO" thay vì JSON
     if (raw.Length >= 6 && Encoding.ASCII.GetString(raw, 0, 6) == "ELGATO") {
       throw new InvalidOperationException(I18n.T("plugin.protected"));
     }
@@ -81,7 +72,7 @@ static class ElgatoPlugins {
       Category = S(m, "Category"), PropertyInspector = S(m, "PropertyInspectorPath"), Actions = new List<PluginAction>(),
     };
     info.Uuid = S(m, "UUID");
-    if (info.Uuid.Length == 0) {  // manifest cũ không có UUID: lấy theo tên thư mục
+    if (info.Uuid.Length == 0) {
       string name = Path.GetFileName(folder.TrimEnd('\\'));
       info.Uuid = name.EndsWith(".sdPlugin", StringComparison.OrdinalIgnoreCase) ? name.Substring(0, name.Length - 9) : name;
     }
@@ -158,9 +149,8 @@ static class ElgatoPlugins {
     return list.OrderBy(p => p.Name).ToList();
   }
 
-  // Cài từ file .streamDeckPlugin (zip chứa <uuid>.sdPlugin/) hay zip tương tự; trả UUID
   public static string Install(string file) {
-    if (Path.GetFileName(file).Equals("manifest.json", StringComparison.OrdinalIgnoreCase)) {  // thư mục .sdPlugin có sẵn
+    if (Path.GetFileName(file).Equals("manifest.json", StringComparison.OrdinalIgnoreCase)) {
       string source = Path.GetDirectoryName(file);
       var plugin = Read(source);
       string dest = Path.Combine(Dir, plugin.Uuid + ".sdPlugin");
@@ -201,7 +191,6 @@ static class ElgatoPlugins {
     SetEnabled(info.Uuid, true);
   }
 
-  // Đường dẫn file trong thư mục plugin, chặn ".." thoát ra ngoài
   public static string SafePath(PluginInfo info, string relative) {
     if (string.IsNullOrEmpty(relative)) return null;
     string full = Path.GetFullPath(Path.Combine(info.Folder, relative.Replace('/', '\\')));
@@ -209,7 +198,6 @@ static class ElgatoPlugins {
     return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full : null;
   }
 
-  // Ảnh trong manifest ghi không có đuôi: thử @2x.png (144 px, nét hơn khi thu về 72), .png, .svg, .jpg
   public static string ImageFile(PluginInfo info, string relative) {
     string basePath = SafePath(info, relative);
     if (basePath == null) return null;
@@ -232,7 +220,6 @@ static class ElgatoPlugins {
     return File.Exists(pf) ? pf : null;
   }
 
-  // Tham số dòng lệnh theo kiểu Windows: bọc ngoặc kép, thoát ngoặc kép bên trong
   public static string Quote(string arg) {
     if (arg.Length > 0 && arg.IndexOfAny(new[] { ' ', '"', '\t' }) < 0) return arg;
     var sb = new StringBuilder("\"");
@@ -253,7 +240,6 @@ static class ElgatoPlugins {
   }
 }
 
-// Job Object: tiến trình con tắt khi agent tắt
 static class Job {
   [StructLayout(LayoutKind.Sequential)]
   struct BASIC_LIMIT {
@@ -287,11 +273,11 @@ static class Job {
     if (handle == IntPtr.Zero) {
       handle = CreateJobObject(IntPtr.Zero, null);
       var info = new EXTENDED_LIMIT();
-      info.Basic.LimitFlags = 0x2000;  // JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
-      SetInformationJobObject(handle, 9 /* JobObjectExtendedLimitInformation */, ref info, Marshal.SizeOf(typeof(EXTENDED_LIMIT)));
+      info.Basic.LimitFlags = 0x2000;
+      SetInformationJobObject(handle, 9 , ref info, Marshal.SizeOf(typeof(EXTENDED_LIMIT)));
     }
     try { AssignProcessToJobObject(handle, p.Handle); } catch (Exception) { }
   }
 }
 
-}  // namespace CydAgent
+}

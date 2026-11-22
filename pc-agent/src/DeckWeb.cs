@@ -1,13 +1,3 @@
-// CYD Deck: trang cài đặt phím (web\index.html), phục vụ ở http://127.0.0.1:47831 và mở bằng Edge ở chế độ cửa sổ app
-// (menu khay "Cài đặt Deck…", hay lệnh "ui" tới cổng điều khiển 47830).
-//
-// An toàn: chỉ nghe ở 127.0.0.1. Mọi /api/ cần header X-Deck-Token đúng mã ngẫu nhiên tạo lúc agent khởi động (mã nằm
-// trong địa chỉ mở cửa sổ). Trang web lạ trong trình duyệt không gửi được header tự đặt mà không qua kiểm tra CORS (agent
-// không bao giờ cho phép), nên không thể tự sửa bộ phím hay tạo lệnh admin. Header Host phải là 127.0.0.1/localhost
-// (chặn DNS rebinding).
-//
-// File tĩnh không cần mã: /plugins/<uuid>/... (file trong thư mục plugin: Property Inspector, ảnh, plugin HTML) và
-// /plugin-host.html (trang Edge ẩn chạy plugin HTML). Chúng chỉ là mã của plugin đã cài, không có dữ liệu riêng.
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -28,8 +18,8 @@ sealed class DeckWeb {
   readonly DeckSync deck;
   readonly Link link;
   readonly ElgatoHost plugins;
-  readonly Func<string, string> pick;  // mở hộp chọn file trên luồng giao diện, trả đường dẫn (null: bỏ)
-  readonly Action languageChanged;     // dựng lại menu khay
+  readonly Func<string, string> pick;
+  readonly Action languageChanged;
   readonly string token;
   readonly string webDir;
   public string AdminMessage = "";
@@ -51,7 +41,6 @@ sealed class DeckWeb {
 
   public string Url { get { return "http://127.0.0.1:" + PORT + "/?t=" + token; } }
 
-  // Cửa sổ cài đặt: Edge ở chế độ app (không thanh địa chỉ); không có Edge thì trình duyệt mặc định
   public void Open() {
     string x86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
     string edge = Path.Combine(x86, @"Microsoft\Edge\Application\msedge.exe");
@@ -83,8 +72,6 @@ sealed class DeckWeb {
       }
     }
   }
-
-  // ---------- HTTP tối giản: một yêu cầu mỗi kết nối ----------
 
   static readonly Dictionary<string, string> Types = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) {
     { ".html", "text/html; charset=utf-8" }, { ".htm", "text/html; charset=utf-8" }, { ".js", "text/javascript; charset=utf-8" },
@@ -156,7 +143,6 @@ sealed class DeckWeb {
     }
   }
 
-  // /plugins/<uuid>/<đường dẫn>; "<uuid>/@icon/<action uuid>" là icon của hành động (hay của plugin nếu trống)
   void ServePluginFile(NetworkStream stream, string rest) {
     int slash = rest.IndexOf('/');
     var plugin = plugins.PluginByUuid(slash > 0 ? rest.Substring(0, slash) : rest);
@@ -215,8 +201,6 @@ sealed class DeckWeb {
     stream.Write(body, 0, body.Length);
   }
 
-  // ---------- API ----------
-
   sealed class RenderRequest {
     public DeckIcon Icon { get; set; }
     public bool Title { get; set; }
@@ -225,7 +209,7 @@ sealed class DeckWeb {
 
   sealed class UploadRequest {
     public string Name { get; set; }
-    public string Data { get; set; }  // base64
+    public string Data { get; set; }
   }
 
   sealed class TestRequest {
@@ -234,7 +218,7 @@ sealed class DeckWeb {
   }
 
   sealed class PickRequest {
-    public string Kind { get; set; }  // "exe", "any", "image", "plugin"
+    public string Kind { get; set; }
   }
 
   sealed class LangRequest {
@@ -244,7 +228,7 @@ sealed class DeckWeb {
   sealed class ObsRequest {
     public string Host { get; set; }
     public int Port { get; set; }
-    public string Password { get; set; }  // null: giữ mật khẩu cũ
+    public string Password { get; set; }
     public bool Enabled { get; set; }
   }
 
@@ -307,19 +291,19 @@ sealed class DeckWeb {
         return new { config = deck.Layout.Config, glyphs = Glyphs.Available(), plugins = PluginList(), status = Status() };
       case "/api/status":
         return Status();
-      case "/api/obs/wake":  // trang cài đặt đang mở mục OBS hay sửa phím OBS: nối OBS để có danh sách cảnh, nguồn
+      case "/api/obs/wake":
         deck.Obs.WakeFor(60);
         return Status();
       case "/api/config": {
         var config = DeckConfig.Normalize(json.Deserialize<DeckConfigData>(body));
         foreach (var k in config.Pages.SelectMany(p => p.Keys).Where(k => k.Kind == "plugin")) {
-          k.Settings = plugins.LatestSettings(k.Context, k.Settings);  // plugin vừa đặt cài đặt qua Property Inspector
+          k.Settings = plugins.LatestSettings(k.Context, k.Settings);
         }
         DeckConfig.Save(config);
         var admin = config.Pages.SelectMany(p => p.Keys)
                         .SelectMany(k => new[] { k.Kind == "action" || k.Kind == "toggle" ? k.Action : null, k.Hold })
                         .Where(a => a != null && a.Type == "run" && a.Admin && !string.IsNullOrWhiteSpace(a.Path));
-        AdminMessage = AdminTasks.Sync(admin);  // có lệnh admin mới: Windows hiện một hộp UAC
+        AdminMessage = AdminTasks.Sync(admin);
         deck.Apply(config);
         plugins.ClearDrafts();
         languageChanged();
@@ -331,7 +315,7 @@ sealed class DeckWeb {
         config.Lang = r.Lang == "vi" ? "vi" : "en";
         I18n.Lang = config.Lang;
         DeckConfig.Save(config);
-        deck.Apply(config);  // bo đổi chữ theo
+        deck.Apply(config);
         languageChanged();
         return new { ok = true, lang = config.Lang };
       }
@@ -348,7 +332,7 @@ sealed class DeckWeb {
         var r = json.Deserialize<UploadRequest>(body);
         byte[] data = Convert.FromBase64String(r.Data ?? "");
         using (var stream = new MemoryStream(data))
-        using (var image = Image.FromStream(stream)) {  // kiểm tra đúng là ảnh
+        using (var image = Image.FromStream(stream)) {
           if (image.Width < 8 || image.Height < 8) throw new InvalidOperationException(I18n.T("web.image_small"));
         }
         Directory.CreateDirectory(DeckConfig.ImagesDir);
@@ -376,7 +360,6 @@ sealed class DeckWeb {
         Process.Start("explorer.exe", "\"" + DeckConfig.Dir + "\"");
         return new { ok = true };
 
-      // ---------- OBS ----------
       case "/api/obs": {
         var r = json.Deserialize<ObsRequest>(body);
         deck.Obs.WakeFor(120);
@@ -384,7 +367,6 @@ sealed class DeckWeb {
         return new { ok = true, message = I18n.T("web.obs_saved"), status = Status() };
       }
       case "/api/obs/local": {
-        // Mật khẩu đi thẳng từ file của OBS vào cài đặt (mã hoá DPAPI), không gửi lên trang
         string obsHost = deck.Obs.Settings.Host ?? "127.0.0.1";
         if (obsHost != "127.0.0.1" && obsHost != "localhost" && obsHost != "::1") throw new InvalidOperationException(I18n.T("web.obs_not_local"));
         var c = DeckObs.LocalObsConfig();
@@ -398,7 +380,6 @@ sealed class DeckWeb {
         return new { ok = true, serverEnabled = enabled, message = enabled ? I18n.T("web.obs_local") : I18n.T("web.obs_local_off"), status = Status() };
       }
 
-      // ---------- plugin Stream Deck ----------
       case "/api/plugins":
         return PluginList();
       case "/api/plugins/install": {
@@ -430,7 +411,7 @@ sealed class DeckWeb {
         var p = plugins.PluginByUuid(r.Uuid);
         if (p == null) throw new InvalidOperationException(I18n.T("plugin.none"));
         ElgatoPlugins.SetEnabled(p.Uuid, false);
-        plugins.Restart(p.Uuid);  // tắt tiến trình trước khi xoá thư mục
+        plugins.Restart(p.Uuid);
         Thread.Sleep(300);
         ElgatoPlugins.Uninstall(p);
         plugins.Reload();
@@ -464,7 +445,6 @@ sealed class DeckWeb {
   }
 }
 
-// Danh sách icon Segoe Fluent Icons cho ô chọn icon (tên Việt và Anh để tìm). Chỉ đưa ra những ký tự font có.
 static class Glyphs {
   static readonly string[,] All = {
     {"E756", "dòng lệnh terminal powershell cmd"}, {"E943", "mã code lập trình programming"}, {"E774", "web trình duyệt internet browser globe"},
@@ -508,4 +488,4 @@ static class Glyphs {
   }
 }
 
-}  // namespace CydAgent
+}

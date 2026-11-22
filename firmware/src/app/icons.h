@@ -1,56 +1,54 @@
-// Sinh bởi tools/make_icon_font.py, đừng sửa tay.
-// Icon Material Symbols Rounded (Google, Apache License 2.0), font: assets/fonts/CydIcons.ttf
 #pragma once
 
-#define ICON_NAV_CLOCK "\xEE\xBF\x96"  // schedule U+EFD6
-#define ICON_NAV_WEATHER "\xEF\x85\xB2"  // partly_cloudy_day U+F172
-#define ICON_NAV_TASKS "\xEE\x9A\xB1"  // checklist U+E6B1
-#define ICON_NAV_POMO "\xEE\x90\xA5"  // timer U+E425
-#define ICON_NAV_HEALTH "\xEE\xA1\xBE"  // favorite U+E87E
-#define ICON_NAV_BACK "\xEE\x97\x8B"  // chevron_left U+E5CB
-#define ICON_NAV_MORE "\xEE\x97\x8C"  // chevron_right U+E5CC
-#define ICON_W_CLEAR_DAY "\xEF\x85\x97"  // clear_day U+F157
-#define ICON_W_CLEAR_NIGHT "\xEF\x85\x99"  // clear_night U+F159
-#define ICON_W_PARTLY_DAY "\xEF\x85\xB2"  // partly_cloudy_day U+F172
-#define ICON_W_PARTLY_NIGHT "\xEF\x85\xB4"  // partly_cloudy_night U+F174
-#define ICON_W_CLOUD "\xEF\x85\x9C"  // cloud U+F15C
-#define ICON_W_FOG "\xEE\xA0\x98"  // foggy U+E818
-#define ICON_W_DRIZZLE "\xEF\x98\x9E"  // rainy_light U+F61E
-#define ICON_W_RAIN "\xEF\x85\xB6"  // rainy U+F176
-#define ICON_W_HEAVY_RAIN "\xEF\x98\x9F"  // rainy_heavy U+F61F
-#define ICON_W_STORM "\xEE\xAF\x9B"  // thunderstorm U+EBDB
-#define ICON_W_SNOW "\xEE\x8B\x8D"  // weather_snowy U+E2CD
-#define ICON_M_HUMIDITY "\xEF\xA1\xBE"  // humidity_percentage U+F87E
-#define ICON_M_WIND "\xEE\xBF\x98"  // air U+EFD8
-#define ICON_M_RAIN_CHANCE "\xEF\x86\xAD"  // umbrella U+F1AD
-#define ICON_M_UV "\xEE\xA0\x9A"  // sunny U+E81A
-#define ICON_M_PRESSURE "\xEE\xA5\x8D"  // compress U+E94D
-#define ICON_M_AQI "\xEF\x88\x98"  // masks U+F218
-#define ICON_M_FEELS "\xEF\x81\xB6"  // thermostat U+F076
-#define ICON_M_SUNRISE "\xEE\x87\x86"  // wb_twilight U+E1C6
-#define ICON_M_SUNSET "\xEF\x85\x99"  // bedtime U+F159
-#define ICON_M_DROP "\xEE\x9E\x98"  // water_drop U+E798
-#define ICON_M_VISIBILITY "\xEE\xA3\xB4"  // visibility U+E8F4
-#define ICON_M_DIRECTION "\xEE\x95\x9D"  // navigation U+E55D
-#define ICON_T_OPEN "\xEE\xA0\xB6"  // radio_button_unchecked U+E836
-#define ICON_T_DONE "\xEF\x82\xBE"  // check_circle U+F0BE
-#define ICON_T_CHECK "\xEE\x99\xA8"  // check U+E668
-#define ICON_T_LATE "\xEF\xA2\xB6"  // error U+F8B6
-#define ICON_T_FOCUS "\xEE\x90\xA5"  // timer U+E425
-#define ICON_P_PLAY "\xEE\x80\xB7"  // play_arrow U+E037
-#define ICON_P_PAUSE "\xEE\x80\xB4"  // pause U+E034
-#define ICON_P_SKIP "\xEE\x81\x84"  // skip_next U+E044
-#define ICON_P_STOP "\xEE\x81\x87"  // stop U+E047
-#define ICON_P_BREAK "\xEE\xBF\xAF"  // coffee U+EFEF
-#define ICON_P_LONG_BREAK "\xEE\xA9\xB8"  // self_improvement U+EA78
-#define ICON_P_UNLINK "\xEE\x85\xAF"  // link_off U+E16F
-#define ICON_H_STEPS "\xEE\x94\xB6"  // directions_walk U+E536
-#define ICON_H_HEART "\xEE\xA1\xBE"  // favorite U+E87E
-#define ICON_H_SLEEP "\xEF\x85\x99"  // bedtime U+F159
-#define ICON_H_SPO2 "\xEE\x9E\x98"  // water_drop U+E798
-#define ICON_S_WIFI "\xEE\x98\xBE"  // wifi U+E63E
-#define ICON_S_WIFI_OFF "\xEE\x99\x88"  // wifi_off U+E648
-#define ICON_S_SYNC "\xEE\x98\xA7"  // sync U+E627
-#define ICON_S_OFFLINE "\xEE\x8B\x81"  // cloud_off U+E2C1
-#define ICON_S_REFRESH "\xEE\x97\x95"  // refresh U+E5D5
-#define ICON_S_SETTINGS "\xEE\xA2\xB8"  // settings U+E8B8
+#define ICON_NAV_CLOCK "\xEE\xBF\x96"
+#define ICON_NAV_WEATHER "\xEF\x85\xB2"
+#define ICON_NAV_TASKS "\xEE\x9A\xB1"
+#define ICON_NAV_POMO "\xEE\x90\xA5"
+#define ICON_NAV_HEALTH "\xEE\xA1\xBE"
+#define ICON_NAV_BACK "\xEE\x97\x8B"
+#define ICON_NAV_MORE "\xEE\x97\x8C"
+#define ICON_W_CLEAR_DAY "\xEF\x85\x97"
+#define ICON_W_CLEAR_NIGHT "\xEF\x85\x99"
+#define ICON_W_PARTLY_DAY "\xEF\x85\xB2"
+#define ICON_W_PARTLY_NIGHT "\xEF\x85\xB4"
+#define ICON_W_CLOUD "\xEF\x85\x9C"
+#define ICON_W_FOG "\xEE\xA0\x98"
+#define ICON_W_DRIZZLE "\xEF\x98\x9E"
+#define ICON_W_RAIN "\xEF\x85\xB6"
+#define ICON_W_HEAVY_RAIN "\xEF\x98\x9F"
+#define ICON_W_STORM "\xEE\xAF\x9B"
+#define ICON_W_SNOW "\xEE\x8B\x8D"
+#define ICON_M_HUMIDITY "\xEF\xA1\xBE"
+#define ICON_M_WIND "\xEE\xBF\x98"
+#define ICON_M_RAIN_CHANCE "\xEF\x86\xAD"
+#define ICON_M_UV "\xEE\xA0\x9A"
+#define ICON_M_PRESSURE "\xEE\xA5\x8D"
+#define ICON_M_AQI "\xEF\x88\x98"
+#define ICON_M_FEELS "\xEF\x81\xB6"
+#define ICON_M_SUNRISE "\xEE\x87\x86"
+#define ICON_M_SUNSET "\xEF\x85\x99"
+#define ICON_M_DROP "\xEE\x9E\x98"
+#define ICON_M_VISIBILITY "\xEE\xA3\xB4"
+#define ICON_M_DIRECTION "\xEE\x95\x9D"
+#define ICON_T_OPEN "\xEE\xA0\xB6"
+#define ICON_T_DONE "\xEF\x82\xBE"
+#define ICON_T_CHECK "\xEE\x99\xA8"
+#define ICON_T_LATE "\xEF\xA2\xB6"
+#define ICON_T_FOCUS "\xEE\x90\xA5"
+#define ICON_P_PLAY "\xEE\x80\xB7"
+#define ICON_P_PAUSE "\xEE\x80\xB4"
+#define ICON_P_SKIP "\xEE\x81\x84"
+#define ICON_P_STOP "\xEE\x81\x87"
+#define ICON_P_BREAK "\xEE\xBF\xAF"
+#define ICON_P_LONG_BREAK "\xEE\xA9\xB8"
+#define ICON_P_UNLINK "\xEE\x85\xAF"
+#define ICON_H_STEPS "\xEE\x94\xB6"
+#define ICON_H_HEART "\xEE\xA1\xBE"
+#define ICON_H_SLEEP "\xEF\x85\x99"
+#define ICON_H_SPO2 "\xEE\x9E\x98"
+#define ICON_S_WIFI "\xEE\x98\xBE"
+#define ICON_S_WIFI_OFF "\xEE\x99\x88"
+#define ICON_S_SYNC "\xEE\x98\xA7"
+#define ICON_S_OFFLINE "\xEE\x8B\x81"
+#define ICON_S_REFRESH "\xEE\x97\x95"
+#define ICON_S_SETTINGS "\xEE\xA2\xB8"

@@ -228,9 +228,29 @@ pc-agent/    CydAgent: chương trình ở khay hệ thống, C# 5 / .NET Framew
 docs/images/ ảnh trong README
 ```
 
-Giao thức giữa PC và mạch ghi ở đầu `firmware/src/deck/link.h`.
-- PC → mạch: gói nhị phân có CRC, 921600 baud.
-- Mạch → PC: dòng chữ `[DECK] ...`.
+Giao thức giữa PC và mạch (phiên bản 2, cổng Serial 921600 baud):
+- **PC → mạch**: gói nhị phân `A5 5A | loại | độ dài 2 byte (LE) | dữ liệu | CRC-8` (đa thức 0x07, tính trên loại,
+  độ dài và dữ liệu). PC chờ mạch trả lời từng gói ảnh rồi mới gửi gói sau.
+
+  | Loại | Gói | Nội dung | Mạch trả lời |
+  |---|---|---|---|
+  | 01 | HELLO | phiên bản, tên máy | `[DECK] chao 2 <ảnh có>/<ô> <CRC bộ phím> <tên máy>` |
+  | 11 | LAYOUT_BEGIN | số trang, số trang chính, tên hồ sơ, ngôn ngữ (0 Việt, 1 English) | |
+  | 12 | LAYOUT_PAGE | số trang, trang cha, kiểu thanh, tên, 8 phím {kiểu, đích, mã ảnh, mã ảnh bật, nhãn, nhãn bật}; kiểu: 0 trống, 1 lệnh, 2 bật/tắt, 3 thư mục, 4 quay ra, 5 plugin | |
+  | 13 | LAYOUT_END | CRC-32 của các gói 11 và 12 | `[DECK] bo <crc> ok\|loi` |
+  | 14 | IMG_BEGIN | mã ảnh | `[DECK] anh <mã> co\|san\|loi` |
+  | 15 | IMG_DATA | mã ảnh, vị trí (byte đã giải nén), cách nén (0 thô, 1 RLE), dữ liệu | `[DECK] anh <mã> ok <vị trí kế>\|loi` |
+  | 16 | IMG_END | mã ảnh | `[DECK] anh <mã> xong\|loi` |
+  | 17 | STATE | trang, phím, bật/tắt, nhãn lúc chạy (tối đa 23 byte) | |
+  | 18 | INFO | cờ (bit 0: đang phát), giờ "HH:MM", CPU %, RAM %, tên bài, "nghệ sĩ · app", tiến độ ‰ (0xFFFF: không có) | |
+  | 19 | ACK | trang, phím, thành công | |
+  | 1A | OBS | cờ (bit 0 đã nối, 1 đang ghi, 2 đang live, 3 tạm dừng ghi), thời gian, cảnh, khung rớt, CPU % của OBS | |
+  | 1B | KEY_IMAGE | trang, phím, vị trí (0xFFFF: xoá ảnh RAM), cách nén, dữ liệu | `[DECK] ram <trang> <phím> ok` khi đủ ảnh |
+
+  PC gửi INFO khi có gì đổi và ít nhất 2 giây một lần; 4 giây không có INFO thì mạch coi như mất nối.
+- **Mạch → PC**: dòng chữ `[DECK] xuong|len|huy <trang> <phím>` (nhấn, nhả, vuốt huỷ) và `[DECK] trang <trang>`
+  (trang đang hiện).
+- **RLE**: byte n < 0x80 là n + 1 điểm ảnh rời theo sau; n ≥ 0x80 là một điểm ảnh lặp n − 0x7E lần.
 
 Ảnh phím là RGB565 72×72, mã ảnh là CRC-32 của điểm ảnh.
 
@@ -487,9 +507,30 @@ pc-agent/    CydAgent tray app, C# 5 / .NET Framework 4
 docs/images/ README images
 ```
 
-The PC ↔ board protocol is documented at the top of `firmware/src/deck/link.h`.
-- PC → board: binary frames with a CRC, at 921600 baud.
-- Board → PC: `[DECK] ...` text lines.
+The PC ↔ board protocol (version 2, serial port at 921600 baud):
+- **PC → board**: binary frames `A5 5A | type | 2-byte length (LE) | data | CRC-8` (polynomial 0x07, over type, length
+  and data). The PC waits for the board's reply to each image frame before sending the next one.
+
+  | Type | Frame | Data | Board reply |
+  |---|---|---|---|
+  | 01 | HELLO | version, PC name | `[DECK] chao 2 <images>/<slots> <layout CRC> <PC name>` |
+  | 11 | LAYOUT_BEGIN | page count, main page count, profile name, language (0 Vietnamese, 1 English) | |
+  | 12 | LAYOUT_PAGE | page number, parent page, bar type, name, 8 keys {kind, target, image id, "on" image id, title, "on" title}; kind: 0 empty, 1 action, 2 toggle, 3 folder, 4 back, 5 plugin | |
+  | 13 | LAYOUT_END | CRC-32 of the 11 and 12 frames | `[DECK] bo <crc> ok\|loi` |
+  | 14 | IMG_BEGIN | image id | `[DECK] anh <id> co\|san\|loi` |
+  | 15 | IMG_DATA | image id, offset (decoded bytes), encoding (0 raw, 1 RLE), data | `[DECK] anh <id> ok <next offset>\|loi` |
+  | 16 | IMG_END | image id | `[DECK] anh <id> xong\|loi` |
+  | 17 | STATE | page, key, on/off, runtime title (up to 23 bytes) | |
+  | 18 | INFO | flags (bit 0: playing), clock "HH:MM", CPU %, RAM %, track title, "artist · app", progress ‰ (0xFFFF: none) | |
+  | 19 | ACK | page, key, success | |
+  | 1A | OBS | flags (bit 0 connected, 1 recording, 2 live, 3 recording paused), time, scene, dropped frames, OBS CPU % | |
+  | 1B | KEY_IMAGE | page, key, offset (0xFFFF: clear the RAM image), encoding, data | `[DECK] ram <page> <key> ok` once complete |
+
+  The PC sends INFO whenever something changes and at least every 2 seconds; after 4 seconds without INFO the board
+  treats the link as lost.
+- **Board → PC**: text lines `[DECK] xuong|len|huy <page> <key>` (press, release, cancelled by a swipe) and
+  `[DECK] trang <page>` (page shown).
+- **RLE**: a byte n < 0x80 is followed by n + 1 literal pixels; n ≥ 0x80 means one pixel repeated n − 0x7E times.
 
 Key images are 72×72 RGB565, identified by the CRC-32 of their pixels.
 

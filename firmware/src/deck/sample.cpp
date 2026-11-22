@@ -1,6 +1,3 @@
-// Bộ phím mẫu: trang 1 làm việc và nhạc, trang 2 công cụ, thư mục OBS. Ảnh ở sample_images.c (sinh bằng
-// tools/make_sample_images.cs từ Material Symbols). Bo chỉ dùng bộ này khi chưa nhận bộ phím từ CydAgent; ảnh chụp
-// màn hình (shot.cpp) luôn dùng bộ này.
 #include "sample.h"
 
 #include <string.h>
@@ -31,9 +28,8 @@ DeckPage &page(DeckProfile &p, int index, const char *name, int parent = -1, Bar
   return page;
 }
 
-}  // namespace
+}
 
-// Chữ của bộ phím mẫu theo ngôn ngữ của bo (lang.h): T("Việt", "English")
 const char *T(const char *vi, const char *en) { return lang() == Lang::Vi ? vi : en; }
 
 void sample_load() {
@@ -77,10 +73,10 @@ void sample_load() {
 
 void sample_demo_state() {
   DeckProfile &p = deck_profile();
-  p.pages[0].keys[2].on = true;  // đang phát nhạc: phím hiện Tạm dừng
-  p.pages[0].keys[4].on = true;  // mic đang tắt
-  p.pages[2].keys[1].on = true;  // cảnh Màn hình đang phát
-  p.pages[2].keys[4].on = true;  // đang ghi
+  p.pages[0].keys[2].on = true;
+  p.pages[0].keys[4].on = true;
+  p.pages[2].keys[1].on = true;
+  p.pages[2].keys[4].on = true;
   strlcpy(p.pages[2].keys[6].live, "35%", sizeof p.pages[2].keys[6].live);
 
   DeckInfo &i = deck_info();

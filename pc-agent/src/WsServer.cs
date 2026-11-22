@@ -1,9 +1,3 @@
-// Máy chủ WebSocket tối giản (RFC 6455) trên TcpListener, chỉ nghe ở 127.0.0.1: đường nói chuyện với plugin Stream Deck
-// (SDK của Elgato dùng WebSocket JSON) và với trang chạy plugin HTML. Không dùng HttpListener (cần quyền URL ACL).
-//
-// Chỉ nhận khung văn bản (và ping/close); khung từ client phải có mặt nạ như chuẩn. Header Origin: kết nối từ trình
-// duyệt luôn có Origin; chỉ chấp nhận Origin của trang cài đặt (http://127.0.0.1:47831) hoặc không có Origin (tiến
-// trình plugin .exe/Node), để trang web lạ mở trong trình duyệt không nói chuyện được với plugin.
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -21,7 +15,7 @@ sealed class WsConnection {
   readonly object writeGate = new object();
   public volatile bool Open = true;
   public string Origin = "";
-  public object Tag;  // ElgatoHost gắn: plugin hay Property Inspector nào
+  public object Tag;
 
   public WsConnection(TcpClient client, NetworkStream stream) {
     this.client = client;
@@ -31,7 +25,7 @@ sealed class WsConnection {
   public void Send(string text) {
     if (!Open) return;
     byte[] payload = Encoding.UTF8.GetBytes(text);
-    var header = new List<byte> { 0x81 };  // FIN + text
+    var header = new List<byte> { 0x81 };
     if (payload.Length < 126) {
       header.Add((byte)payload.Length);
     } else if (payload.Length < 65536) {
@@ -81,7 +75,6 @@ sealed class WsConnection {
     return buffer;
   }
 
-  // Đọc một tin nhắn văn bản trọn vẹn; null khi đóng
   public string Receive() {
     var message = new MemoryStream();
     while (true) {
@@ -104,8 +97,8 @@ sealed class WsConnection {
       if (mask != null) {
         for (int i = 0; i < payload.Length; i++) payload[i] ^= mask[i % 4];
       }
-      if (opcode == 0x8) return null;  // close
-      if (opcode == 0x9) {             // ping → pong
+      if (opcode == 0x8) return null;
+      if (opcode == 0x9) {
         SendControl(0xA, payload);
         continue;
       }
@@ -125,7 +118,7 @@ sealed class WsServer {
 
   public WsServer(Func<string, bool> originAllowed) {
     this.originAllowed = originAllowed;
-    listener = new TcpListener(IPAddress.Loopback, 0);  // cổng ngẫu nhiên, như app của Elgato
+    listener = new TcpListener(IPAddress.Loopback, 0);
     listener.Start();
     Port = ((IPEndPoint)listener.LocalEndpoint).Port;
     new Thread(Accept) { IsBackground = true, Name = "ws-accept" }.Start();
@@ -149,7 +142,7 @@ sealed class WsServer {
       var stream = client.GetStream();
       var head = new StringBuilder();
       int b, newlines = 0;
-      while ((b = stream.ReadByte()) >= 0) {  // phần đầu HTTP, kết thúc bằng dòng trống
+      while ((b = stream.ReadByte()) >= 0) {
         head.Append((char)b);
         newlines = b == '\n' ? newlines + 1 : b == '\r' ? newlines : 0;
         if (newlines == 2 || head.Length > 16384) break;
@@ -180,7 +173,7 @@ sealed class WsServer {
         if (text == null) break;
         try {
           if (OnMessage != null) OnMessage(conn, text);
-        } catch (Exception ex) {  // một tin nhắn lạ không được làm đứt kết nối của plugin
+        } catch (Exception ex) {
           Log.Agent("Plugin: lỗi khi xử lý tin nhắn: " + ex.Message);
         }
       }
@@ -195,4 +188,4 @@ sealed class WsServer {
   }
 }
 
-}  // namespace CydAgent
+}
