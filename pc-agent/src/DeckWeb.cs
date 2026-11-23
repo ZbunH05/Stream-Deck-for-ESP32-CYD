@@ -221,6 +221,10 @@ sealed class DeckWeb {
     public string Kind { get; set; }
   }
 
+  sealed class AutostartRequest {
+    public bool Enabled { get; set; }
+  }
+
   sealed class LangRequest {
     public string Lang { get; set; }
   }
@@ -263,7 +267,7 @@ sealed class DeckWeb {
     var obs = deck.Obs;
     return new {
       connected = deck.Connected, port = link.PortName, status = deck.Status, linkStatus = link.Status, lastPress = deck.LastPress,
-      admin = AdminMessage, lang = I18n.Lang,
+      admin = AdminMessage, lang = I18n.Lang, autostart = Autostart.Enabled,
       media = m.Has ? new { title = m.Title, artist = m.Artist, app = m.App, playing = m.Playing, permille = m.Permille } : null,
       obs = new {
         host = obs.Settings.Host, port = obs.Settings.Port, enabled = obs.Settings.Enabled,
@@ -308,6 +312,11 @@ sealed class DeckWeb {
         plugins.ClearDrafts();
         languageChanged();
         return new { ok = true, message = I18n.T("web.saved") + (AdminMessage.Length > 0 ? ". " + AdminMessage : ""), config };
+      }
+      case "/api/autostart": {
+        var r = json.Deserialize<AutostartRequest>(body);
+        Autostart.Set(r.Enabled);
+        return new { ok = true, message = I18n.T(Autostart.Enabled ? "web.autostart_on" : "web.autostart_off"), status = Status() };
       }
       case "/api/lang": {
         var r = json.Deserialize<LangRequest>(body);

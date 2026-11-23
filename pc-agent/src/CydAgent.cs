@@ -973,6 +973,17 @@ sealed class AgentApp : ApplicationContext {
     menu.Items.Add(statusItem);
     menu.Items.Add(new ToolStripSeparator());
     menu.Items.Add(I18n.T("menu.settings"), null, (s, e) => web.Open());
+    var autostart = new ToolStripMenuItem(I18n.T("menu.autostart")) { Checked = Autostart.Enabled };
+    autostart.Click += (s, e) => {
+      try {
+        Autostart.Set(!Autostart.Enabled);
+      } catch (Exception ex) {
+        Log.Agent("Không đổi được khởi động cùng Windows: " + ex.Message);
+      }
+      autostart.Checked = Autostart.Enabled;
+    };
+    menu.Opening += (s, e) => autostart.Checked = Autostart.Enabled;
+    menu.Items.Add(autostart);
     menu.Items.Add(new ToolStripSeparator());
     menu.Items.Add(I18n.T("menu.pause"), null, (s, e) => link.Pause(600));
     menu.Items.Add(I18n.T("menu.resume"), null, (s, e) => link.Resume());
@@ -1085,6 +1096,7 @@ static class Program {
     bool created;
     using (var mutex = new Mutex(true, "CydPcAgent", out created)) {
       if (!created) return;
+      Autostart.MigrateLegacy();
       Application.EnableVisualStyles();
       Application.SetCompatibleTextRenderingDefault(false);
       var app = new AgentApp(port);

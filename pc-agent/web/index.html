@@ -49,6 +49,8 @@ aside { border-right: 1px solid var(--line); padding: 14px 12px; display: flex; 
 .page.child { padding-left: 26px; }
 .navs { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
 .nav .count { margin-left: auto; font-size: 11.5px; color: var(--muted); }
+.nav input { margin: 0 2px 0 1px; accent-color: var(--accent); cursor: pointer; }
+#navAuto { font-size: 13px; white-space: nowrap; }
 .center { overflow: auto; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .device { background: #000; border-radius: 14px; padding: 9px; border: 1px solid var(--line2); zoom: var(--z, 1); }
 @media (max-width: 1150px) { main { grid-template-columns: 190px 1fr 380px; } }
@@ -148,6 +150,7 @@ pre.log { background: #0a0a0c; border: 1px solid var(--line); border-radius: 8px
       <div class="navs">
         <div class="nav" id="navPlugins"><span class="ico">&#xEA86;</span><span data-t="nav.plugins"></span><span class="count" id="pluginCount"></span></div>
         <div class="nav" id="navObs"><span class="ico">&#xE7C8;</span><span>OBS</span><span class="count" id="obsDot"></span></div>
+        <label class="nav" id="navAuto"><input type="checkbox" id="autostart"><span data-t="autostart"></span></label>
       </div>
     </aside>
     <section class="center">
@@ -181,6 +184,7 @@ const STR = {
   'pages': ['Trang', 'Pages'],
   'add_page': ['+ Trang', '+ Page'],
   'nav.plugins': ['Plugin Stream Deck', 'Stream Deck plugins'],
+  'autostart': ['Khởi động cùng Windows', 'Start with Windows'],
   'hint': ['Bấm vào phím để sửa. Kéo một phím thả lên phím khác để đổi chỗ. Hình xem trước là đúng ảnh sẽ lên bo (đã đổi sang màu 16 bit của màn).',
            'Click a key to edit it. Drag a key onto another to swap them. The preview is the exact image the board shows (converted to the screen\'s 16-bit colour).'],
   'pick_key': ['Chọn một phím để sửa', 'Select a key to edit'],
@@ -466,6 +470,7 @@ function showStatus(s) {
   $('lastPress').textContent = s.lastPress ? t('last_press', s.lastPress) : '';
   $('pluginCount').textContent = plugins.length ? String(plugins.length) : '';
   $('obsDot').innerHTML = s.obs && s.obs.connected ? '<span style="color:var(--green)">●</span>' : '';
+  if (!$('autostart').disabled) $('autostart').checked = !!s.autostart;
   renderBar();
   if (view === 'obs') obsStatusLine();
   const obsOn = !!(s.obs && s.obs.connected);
@@ -1412,6 +1417,20 @@ document.querySelectorAll('#lang button').forEach((b) => {
 });
 
 $('openFolder').onclick = () => api('/api/open-folder', {}).catch((e) => toast(e.message));
+
+$('autostart').onchange = async () => {
+  const box = $('autostart');
+  box.disabled = true;
+  try {
+    const r = await api('/api/autostart', {Enabled: box.checked});
+    toast(r.message);
+    box.disabled = false;
+    showStatus(r.status);
+  } catch (e) {
+    toast(e.message);
+    box.disabled = false;
+  }
+};
 
 window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 

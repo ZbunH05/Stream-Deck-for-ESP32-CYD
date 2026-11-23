@@ -101,7 +101,9 @@ VI/EN đổi ngôn ngữ cho cả trang, agent và mạch.*
 2. **Dịch và chạy agent** (thư mục `pc-agent`):
    - nhấp đúp `build.cmd`, ra file `bin\CydAgent.exe`;
    - chạy `bin\CydAgent.exe`: agent không có cửa sổ, chỉ có icon nhỏ ở khay hệ thống;
-   - muốn agent tự chạy mỗi lần đăng nhập Windows: chạy `tu-chay.ps1`.
+   - muốn agent tự chạy mỗi lần đăng nhập Windows: chuột phải icon ở khay → tick **Khởi động cùng Windows**, hoặc
+     tick ô cùng tên ở góc trái dưới trang cài đặt. Bỏ tick là tắt; Windows cũng liệt kê nó trong Task Manager →
+     Startup apps.
 3. **Cài đặt phím**: nhấp đúp icon agent ở khay, hoặc chuột phải → *Cài đặt Deck…*. Sửa phím, bấm **Lưu và gửi xuống
    mạch**.
 
@@ -378,7 +380,9 @@ onto another to swap them; the VI/EN button switches the language of the page, t
 2. **Build and run the agent** (`pc-agent` folder):
    - double-click `build.cmd` to get `bin\CydAgent.exe`;
    - run `bin\CydAgent.exe`: it has no window, only a small tray icon;
-   - to start it at every Windows sign-in, run `tu-chay.ps1`.
+   - to start it at every Windows sign-in, right-click the tray icon and tick **Start with Windows**, or tick the box
+     with the same name at the bottom left of the settings page. Untick it to turn it off; Windows also lists it in
+     Task Manager → Startup apps.
 3. **Configure keys**: double-click the tray icon, or right-click → *Deck settings…*. Edit the keys, then press **Save
    and send to the board**.
 
