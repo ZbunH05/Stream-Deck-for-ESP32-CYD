@@ -9,6 +9,7 @@ Stream Deck gọn nhẹ cho Windows, chạy trên mạch ESP32 "Cheap Yellow Dis
 - chạy được plugin Stream Deck của Elgato.
 
 Giao diện có tiếng Việt và tiếng Anh. Cấu hình phím bằng một trang web ngay trên máy, nối với mạch chỉ bằng cáp USB.
+Cài đặt nhanh: https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/
 
 ![Bảng phím trên màn CYD: trang chính, đang phát nhạc](docs/images/demo-media-vi.png)
 
@@ -320,6 +321,7 @@ A lightweight Stream Deck for Windows that runs on the cheap ESP32 "Cheap Yellow
 
 The UI is in English and Vietnamese. Keys are configured in a local web page on your PC, and the board needs only a
 USB cable.
+Fast setup: https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/
 
 ![The deck on the CYD screen: main page with music playing](docs/images/demo-media-en.png)
 
