@@ -174,5 +174,17 @@
   border-radius: 12px; background: #fff; }
 .faq-head .faq-gh img { width: 28px; height: auto; }
 
+.author { display: grid; gap: var(--s-3); align-content: start; justify-items: start; }
+.author__name { margin: 0; font: var(--display-weight) var(--t-h3)/1.2 var(--font-display); letter-spacing: var(--display-tracking); }
+.author__bio { margin: 0; max-width: 40ch; font-size: var(--t-lead); line-height: 1.5; }
+.author__links { margin: 0; display: flex; flex-wrap: wrap; gap: var(--s-2) var(--s-6); }
+.card.donate { display: grid; gap: var(--s-5); justify-items: start; align-content: start; scroll-margin-top: calc(var(--nav) + var(--s-6)); }
+.donate__qr { width: 380px; max-width: 100%; height: auto; aspect-ratio: 1; padding: 8px; border-radius: var(--r-md); background: #fff; }
+.donate__text { display: grid; gap: var(--s-2); }
+.donate__text h3 { margin: 0; font-size: var(--t-card); font-weight: 500; }
+.donate__text p { margin: 0; font-size: 16px; line-height: 1.5; }
+@media (min-width: 1024px) and (max-width: 1279px) { .donate__qr { width: 300px; } }
+@media (min-width: 640px) and (max-width: 1023px) { .donate__qr { width: 360px; } }
+@media (max-width: 639px) { .donate__qr { width: 100%; } .card.donate { gap: var(--s-4); } }
 .footer__legal { gap: var(--s-3) var(--s-6); }
 .footer__tm { flex-basis: 100%; }

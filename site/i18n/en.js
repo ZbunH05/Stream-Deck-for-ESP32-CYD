@@ -10,6 +10,8 @@ export default {
   'nav.hardware': 'Hardware',
   'nav.agent': 'Agent',
   'nav.faq': 'Questions',
+  'nav.author': 'Author',
+  'nav.donate': 'Donate',
   'nav.c1t': 'Main key page',
   'nav.c1': '8 keys, the clock, music, CPU and RAM',
   'nav.c1alt': 'The main key page on the board',
@@ -123,6 +125,12 @@ export default {
   'faq.q6': 'Why is the CydAgent settings page blank?',
   'faq.a6': "CydAgent.exe was moved away from the web folder. Unzip the whole zip and run it again.",
 
+  'author.title': 'About the author',
+  'author.bio': 'I make CYD Deck and share it for free. Found a bug or have an idea? Message me.',
+  'author.qrAlt': 'VietQR code to support the author',
+  'author.donateTitle': 'Buy the author a coffee',
+  'author.donate': 'Scan with a Vietnamese banking app or MoMo.',
+
   'close.title': 'Flash the firmware onto your CYD board',
   'close.text': 'Free and MIT-licensed. You need Chrome or Edge on a computer and a USB cable with data wires.',
 
@@ -136,6 +144,5 @@ export default {
   'footer.issue': 'Report a bug',
   'footer.driver': 'CH340 driver',
   'footer.license': 'MIT licence',
-  'footer.coffee': 'The author is not taking coffee money yet.',
   'footer.tm': '“Stream Deck” is a trademark of Corsair/Elgato; this project is not affiliated with Elgato. Product names and logos belong to their owners.',
 };
