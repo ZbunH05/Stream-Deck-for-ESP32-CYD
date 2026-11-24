@@ -151,6 +151,7 @@ pre.log { background: #0a0a0c; border: 1px solid var(--line); border-radius: 8px
         <div class="nav" id="navPlugins"><span class="ico">&#xEA86;</span><span data-t="nav.plugins"></span><span class="count" id="pluginCount"></span></div>
         <div class="nav" id="navObs"><span class="ico">&#xE7C8;</span><span>OBS</span><span class="count" id="obsDot"></span></div>
         <label class="nav" id="navAuto"><input type="checkbox" id="autostart"><span data-t="autostart"></span></label>
+        <label class="nav" id="navFlip"><input type="checkbox" id="flip" disabled><span data-t="flip"></span></label>
       </div>
     </aside>
     <section class="center">
@@ -185,6 +186,9 @@ const STR = {
   'add_page': ['+ Trang', '+ Page'],
   'nav.plugins': ['Plugin Stream Deck', 'Stream Deck plugins'],
   'autostart': ['Khởi động cùng Windows', 'Start with Windows'],
+  'flip': ['Xoay ngược màn hình 180°', 'Flip the screen 180°'],
+  'flip.no_board': ['Cắm bo để đổi chiều màn hình', 'Plug in the board to change the screen direction'],
+  'flip.old': ['Firmware trên bo chưa hỗ trợ: nạp lại firmware mới', 'The board\'s firmware cannot do this yet: flash the new firmware'],
   'hint': ['Bấm vào phím để sửa. Kéo một phím thả lên phím khác để đổi chỗ. Hình xem trước là đúng ảnh sẽ lên bo (đã đổi sang màu 16 bit của màn).',
            'Click a key to edit it. Drag a key onto another to swap them. The preview is the exact image the board shows (converted to the screen\'s 16-bit colour).'],
   'pick_key': ['Chọn một phím để sửa', 'Select a key to edit'],
@@ -471,6 +475,13 @@ function showStatus(s) {
   $('pluginCount').textContent = plugins.length ? String(plugins.length) : '';
   $('obsDot').innerHTML = s.obs && s.obs.connected ? '<span style="color:var(--green)">●</span>' : '';
   if (!$('autostart').disabled) $('autostart').checked = !!s.autostart;
+  const flip = $('flip');
+  if (!flip.dataset.busy) {
+    const known = s.connected && s.flip != null;
+    flip.disabled = !known;
+    flip.checked = !!s.flip;
+    $('navFlip').title = known ? '' : t(s.connected ? 'flip.old' : 'flip.no_board');
+  }
   renderBar();
   if (view === 'obs') obsStatusLine();
   const obsOn = !!(s.obs && s.obs.connected);
@@ -1429,6 +1440,22 @@ $('autostart').onchange = async () => {
   } catch (e) {
     toast(e.message);
     box.disabled = false;
+  }
+};
+
+$('flip').onchange = async () => {
+  const box = $('flip');
+  box.dataset.busy = '1';
+  box.disabled = true;
+  try {
+    const r = await api('/api/flip', {Enabled: box.checked});
+    toast(r.message);
+    delete box.dataset.busy;
+    showStatus(r.status);
+  } catch (e) {
+    toast(e.message);
+    delete box.dataset.busy;
+    pollStatus();
   }
 };
 

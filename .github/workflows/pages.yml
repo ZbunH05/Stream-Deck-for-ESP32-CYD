@@ -1,0 +1,45 @@
+name: Trang nạp web
+
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Lấy firmware của bản phát hành mới nhất
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf site/firmware
+          mkdir -p site/firmware
+          if gh release download --repo "$GITHUB_REPOSITORY" --pattern 'CydDeck-firmware.zip' --dir "$RUNNER_TEMP/fw"; then
+            unzip -o "$RUNNER_TEMP/fw/CydDeck-firmware.zip" -d site/firmware
+            cat site/firmware/manifest.json
+          else
+            echo "::warning::Chưa có bản phát hành nào có CydDeck-firmware.zip, trang sẽ báo chưa có firmware"
+          fi
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v5

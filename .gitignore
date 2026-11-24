@@ -5,3 +5,6 @@ firmware/shots/
 compile_commands.json
 pc-agent/bin/
 pc-agent/logs/
+site/firmware/
+dist/
+.taste-skill/

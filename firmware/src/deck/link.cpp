@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../cyd/cyd_hw.h"
 #include "deck.h"
 #include "lang.h"
 #include "ramimg.h"
@@ -25,6 +26,7 @@ enum : uint8_t {
   ACK = 0x19,
   OBS = 0x1A,
   KEY_IMAGE = 0x1B,
+  SCREEN_FLIP = 0x1C,
 };
 
 constexpr uint16_t MAX_PAYLOAD = 640;
@@ -157,7 +159,16 @@ void on_hello(Reader &r) {
   char host[32];
   r.text(host, sizeof host);
   Serial.printf("[DECK] chao 2 %d/%d %08lx %s\n", store_used(), store_slots(), (unsigned long)layout_crc, host);
+  Serial.printf("[DECK] lat %d\n", cyd_flipped() ? 1 : 0);
   if (deck_page() >= 0) link_page(deck_page());
+}
+
+void on_display(Reader &r) {
+  const uint8_t flags = r.u8();
+  if (!r.ok) return;
+  const bool want = (flags & 1) != 0;
+  if (want != cyd_flipped()) cyd_set_flipped(want);
+  Serial.printf("[DECK] lat %d\n", cyd_flipped() ? 1 : 0);
 }
 
 void keep_frame() {
@@ -323,6 +334,7 @@ void dispatch() {
     case ACK: on_ack(r); break;
     case OBS: on_obs(r); break;
     case KEY_IMAGE: on_key_image(r); break;
+    case SCREEN_FLIP: on_display(r); break;
     default: break;
   }
 }

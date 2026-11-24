@@ -1,0 +1,76 @@
+name: Phát hành
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.platformio
+            firmware/.pio/libdeps
+          key: pio-${{ runner.os }}-${{ hashFiles('firmware/platformio.ini') }}
+      - name: Cài PlatformIO
+        run: pip install --upgrade platformio
+      - name: Build cyd và cyd2usb
+        run: pio run -d firmware -e cyd -e cyd2usb
+      - name: Gom firmware cho trang nạp web
+        run: |
+          python .github/scripts/pack_firmware.py --version "${GITHUB_REF_NAME#v}" --out dist/firmware
+          cd dist/firmware && zip -r ../CydDeck-firmware.zip .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: firmware
+          path: dist/CydDeck-firmware.zip
+
+  agent:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Dịch CydAgent
+        shell: cmd
+        run: call pc-agent\build.cmd
+      - name: Đóng gói CydAgent.zip
+        shell: pwsh
+        run: |
+          $pkg = 'dist\CydAgent'
+          New-Item -ItemType Directory -Force "$pkg\web" | Out-Null
+          Copy-Item pc-agent\bin\CydAgent.exe "$pkg\"
+          Copy-Item pc-agent\web\* "$pkg\web\" -Recurse
+          Copy-Item LICENSE "$pkg\"
+          Compress-Archive -Path "$pkg\*" -DestinationPath dist\CydAgent.zip
+      - uses: actions/upload-artifact@v7
+        with:
+          name: agent
+          path: dist/CydAgent.zip
+
+  release:
+    needs: [firmware, agent]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Tạo GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/CydAgent.zip dist/CydDeck-firmware.zip \
+            --repo "$GITHUB_REPOSITORY" --title "CYD Deck $GITHUB_REF_NAME" --generate-notes
+      - name: Cập nhật trang nạp web
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref "${{ github.event.repository.default_branch }}"

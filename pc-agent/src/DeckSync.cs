@@ -18,7 +18,7 @@ interface IDeckPlugins {
 
 sealed class DeckSync {
   public const byte LAYOUT_BEGIN = 0x11, LAYOUT_PAGE = 0x12, LAYOUT_END = 0x13, IMG_BEGIN = 0x14, IMG_DATA = 0x15,
-                    IMG_END = 0x16, STATE = 0x17, INFO = 0x18, ACK = 0x19, OBS = 0x1A, KEY_IMAGE = 0x1B;
+                    IMG_END = 0x16, STATE = 0x17, INFO = 0x18, ACK = 0x19, OBS = 0x1A, KEY_IMAGE = 0x1B, SCREEN_FLIP = 0x1C;
   const int CHUNK_DECODED = 2048, CHUNK_ENCODED = 600;
   const int HOLD_MS = 500;
 
@@ -30,6 +30,7 @@ sealed class DeckSync {
   volatile bool connected, syncWanted;
   uint boardCrc;
   volatile int visiblePage = -1;
+  volatile int flip = -1;
   readonly Dictionary<int, DateTime> downAt = new Dictionary<int, DateTime>();
   readonly Dictionary<int, string> sentState = new Dictionary<int, string>();
   readonly Dictionary<int, byte[]> ramImages = new Dictionary<int, byte[]>();
@@ -55,6 +56,13 @@ sealed class DeckSync {
   public DeckLayout Layout { get { lock (gate) return layout; } }
   public bool Connected { get { return connected; } }
   public int VisiblePage { get { return visiblePage; } }
+  public int Flip { get { return flip; } }
+
+  public bool SetFlip(bool on) {
+    if (!connected || flip < 0) return false;
+    link.Send(Frames.Frame(SCREEN_FLIP, new[] { (byte)(on ? 1 : 0) }));
+    return true;
+  }
 
   public void Apply(DeckConfigData config) {
     var built = DeckConfig.Build(config);
@@ -112,6 +120,9 @@ sealed class DeckSync {
       case "trang":
         if (a >= 0) PageShown(a);
         break;
+      case "lat":
+        if (a == 0 || a == 1) flip = a;
+        break;
       case "anh":
       case "bo":
       case "ram":
@@ -123,6 +134,7 @@ sealed class DeckSync {
   public void OnDisconnected() {
     connected = false;
     visiblePage = -1;
+    flip = -1;
     lock (gate) {
       sentState.Clear();
       downAt.Clear();

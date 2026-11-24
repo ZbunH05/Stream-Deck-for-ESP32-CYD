@@ -74,6 +74,8 @@ lượng nguồn, thanh tin OBS.*
   plugin (đồng hồ, biểu đồ…) đi vào 8 ô ảnh trong RAM, không ghi flash.
 - **Chỉ cần cáp USB**: không Wi-Fi, không mở cổng tường lửa, không cài thêm runtime. Agent trên PC dịch bằng `csc.exe`
   có sẵn trong Windows.
+- **Xoay ngược màn hình 180°** khi đặt mạch lộn ngược: tick ô ở góc trái dưới trang cài đặt hoặc trong menu khay. Mạch
+  đảo cả cảm ứng và tự nhớ cài đặt.
 
 ![Trang cài đặt phím](docs/images/settings-vi.png)
 
@@ -86,12 +88,13 @@ VI/EN đổi ngôn ngữ cho cả trang, agent và mạch.*
 |---|---|
 | Mạch | ESP32-2432S028R ("Cheap Yellow Display", 2,8", 320×240, ILI9341, cảm ứng điện trở XPT2046). Đã thử với màn IPS mã `81 81 B3` (firmware tự đảo màu). Bản 2 cổng USB dùng màn ST7789: env `cyd2usb`, chưa thử. |
 | Máy tính | Windows 10/11 có .NET Framework 4 (có sẵn). Nên dùng Windows 11: icon trong trang cài đặt lấy từ font Segoe Fluent Icons. Edge để mở cửa sổ cài đặt và chạy plugin HTML. |
-| Nạp firmware | [PlatformIO](https://platformio.org/) (bản dòng lệnh hoặc extension VS Code) |
+| Nạp firmware | Chrome hoặc Edge trên máy tính ([trang nạp web](https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/)), hoặc [PlatformIO](https://platformio.org/) (bản dòng lệnh hoặc extension VS Code) |
 | Tuỳ chọn | [OBS Studio](https://obsproject.com/) 28 trở lên; [Node.js](https://nodejs.org/) cho plugin Node.js |
 
 ### Cài đặt
 
-1. **Nạp firmware** (thư mục `firmware`):
+1. **Nạp firmware**: mở [trang nạp web](https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/) bằng Chrome hoặc Edge, cắm mạch, bấm **Nạp firmware**. Trang tự
+   đọc mã chip màn và nạp đúng bản. Hoặc tự build trong thư mục `firmware`:
    ```powershell
    cd firmware
    .\cyd.cmd all -NoMonitor
@@ -99,8 +102,9 @@ VI/EN đổi ngôn ngữ cho cả trang, agent và mạch.*
    Lệnh này build, nạp, rồi đọc mã chip màn để kiểm tra đúng loại. Cũng có thể dùng `pio run -t upload`.
    Chưa nối máy tính thì mạch hiện bộ phím mẫu và báo "Đang chờ máy tính…".
 2. **Dịch và chạy agent** (thư mục `pc-agent`):
-   - nhấp đúp `build.cmd`, ra file `bin\CydAgent.exe`;
-   - chạy `bin\CydAgent.exe`: agent không có cửa sổ, chỉ có icon nhỏ ở khay hệ thống;
+   - nhấp đúp `build.cmd`, ra file `bin\CydAgent.exe` (hoặc tải `CydAgent.zip` ở trang Releases rồi giải nén);
+   - chạy `bin\CydAgent.exe`: agent không có cửa sổ, chỉ có icon nhỏ ở khay hệ thống. Chạy một bản agent mới khi bản
+     cũ đang chạy thì bản mới tự tắt bản cũ và chạy thay;
    - muốn agent tự chạy mỗi lần đăng nhập Windows: chuột phải icon ở khay → tick **Khởi động cùng Windows**, hoặc
      tick ô cùng tên ở góc trái dưới trang cài đặt. Bỏ tick là tắt; Windows cũng liệt kê nó trong Task Manager →
      Startup apps.
@@ -227,6 +231,8 @@ pc-agent/    CydAgent: chương trình ở khay hệ thống, C# 5 / .NET Framew
   src/         Deck*.cs (bộ phím, giao thức, lệnh, nhạc, OBS, máy chủ trang cài đặt), Elgato*.cs và WsServer.cs
                (chạy plugin Stream Deck), KeyArt.cs (vẽ ảnh phím), I18n.cs (chữ hai ngôn ngữ)
   web/         trang cài đặt, trang chạy plugin HTML
+site/        trang nạp web trên trình duyệt (GitHub Pages)
+.github/     workflow phát hành và đưa trang nạp web lên GitHub Pages
 docs/images/ ảnh trong README
 ```
 
@@ -236,7 +242,7 @@ Giao thức giữa PC và mạch (phiên bản 2, cổng Serial 921600 baud):
 
   | Loại | Gói | Nội dung | Mạch trả lời |
   |---|---|---|---|
-  | 01 | HELLO | phiên bản, tên máy | `[DECK] chao 2 <ảnh có>/<ô> <CRC bộ phím> <tên máy>` |
+  | 01 | HELLO | phiên bản, tên máy | `[DECK] chao 2 <ảnh có>/<ô> <CRC bộ phím> <tên máy>` rồi `[DECK] lat <0\|1>` |
   | 11 | LAYOUT_BEGIN | số trang, số trang chính, tên hồ sơ, ngôn ngữ (0 Việt, 1 English) | |
   | 12 | LAYOUT_PAGE | số trang, trang cha, kiểu thanh, tên, 8 phím {kiểu, đích, mã ảnh, mã ảnh bật, nhãn, nhãn bật}; kiểu: 0 trống, 1 lệnh, 2 bật/tắt, 3 thư mục, 4 quay ra, 5 plugin | |
   | 13 | LAYOUT_END | CRC-32 của các gói 11 và 12 | `[DECK] bo <crc> ok\|loi` |
@@ -248,6 +254,7 @@ Giao thức giữa PC và mạch (phiên bản 2, cổng Serial 921600 baud):
   | 19 | ACK | trang, phím, thành công | |
   | 1A | OBS | cờ (bit 0 đã nối, 1 đang ghi, 2 đang live, 3 tạm dừng ghi), thời gian, cảnh, khung rớt, CPU % của OBS | |
   | 1B | KEY_IMAGE | trang, phím, vị trí (0xFFFF: xoá ảnh RAM), cách nén, dữ liệu | `[DECK] ram <trang> <phím> ok` khi đủ ảnh |
+  | 1C | SCREEN_FLIP | cờ (bit 0: xoay màn 180°), mạch lưu vào NVS | `[DECK] lat <0\|1>` |
 
   PC gửi INFO khi có gì đổi và ít nhất 2 giây một lần; 4 giây không có INFO thì mạch coi như mất nối.
 - **Mạch → PC**: dòng chữ `[DECK] xuong|len|huy <trang> <phím>` (nhấn, nhả, vuốt huỷ) và `[DECK] trang <trang>`
@@ -257,6 +264,30 @@ Giao thức giữa PC và mạch (phiên bản 2, cổng Serial 921600 baud):
 Ảnh phím là RGB565 72×72, mã ảnh là CRC-32 của điểm ảnh.
 
 `.\cyd.cmd shot` chụp lại màn hình mạch qua cổng Serial (các ảnh mạch trong README được chụp như vậy).
+
+### Trang nạp web
+
+Thư mục `site/` là trang nạp firmware trên trình duyệt (HTML/CSS/JS thuần và esptool-js), chạy trên GitHub Pages tại
+https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/.
+
+- `site/js/config.js`:
+  - `repo`: repo chứa bản phát hành;
+  - `links`: GitHub, Facebook, Zalo (để trống thì ẩn);
+  - `stats`: thống kê lượt nạp ẩn danh, không cookie. `goatcounter` là địa chỉ `https://<tên>.goatcounter.com/count`,
+    `endpoint` là URL HTTPS nhận JSON qua POST. Để trống cả hai thì không gửi gì.
+- Chữ tiếng Việt nằm trong `site/index.html`, tiếng Anh trong `site/i18n/en.js`, chữ của bảng nạp trong
+  `site/js/messages.js`.
+- `site/assets/` là bộ kit giao diện, `site/vendor/` là esptool-js: giữ nguyên, không sửa tay.
+- Bảng nạp, cách "Cài mới, xoá trắng": xoá 4 MB, ghi bản `cyd`, khởi động lại và đọc dòng `CYD_PANEL`, gặp màn
+  ST7789 thì nạp tiếp bản `cyd2usb`. Cách "Cập nhật, giữ dữ liệu": đọc `CYD_PANEL` trước, rồi chỉ ghi chương trình
+  đúng bản, giữ NVS và kho ảnh phím.
+- **Phát hành**: đẩy một tag `vX.Y.Z` (`git tag v2.0.0`, rồi `git push origin v2.0.0`). Workflow `release.yml` build
+  firmware `cyd`, `cyd2usb` và CydAgent, tạo GitHub Release kèm `CydAgent.zip` và `CydDeck-firmware.zip`, rồi chạy
+  `pages.yml` để đưa trang lên GitHub Pages cùng firmware mới nhất. Lần đầu cần bật Pages: Settings → Pages → Source:
+  GitHub Actions.
+- **Thử trên máy**: build cả hai env (`pio run -d firmware -e cyd -e cyd2usb`), chạy
+  `python .github/scripts/pack_firmware.py --version 2.0.0 --out site/firmware`, rồi
+  `python -m http.server 8765 --directory site` và mở http://localhost:8765 bằng Chrome hoặc Edge.
 
 ### Chưa có
 
@@ -353,6 +384,8 @@ the source volume, and the info bar shows OBS status.*
   not have yet. Images that plugins change all the time (clocks, charts) go to 8 RAM slots instead of flash.
 - **USB cable only**: no Wi-Fi, no firewall rules, no extra runtime. The PC agent is compiled with the `csc.exe` that
   ships with Windows.
+- **Flip the screen 180°** when the board sits upside down: tick the box at the bottom left of the settings page or in
+  the tray menu. The board flips touch too and remembers the setting.
 
 ![Key settings page](docs/images/settings-en.png)
 
@@ -365,12 +398,13 @@ onto another to swap them; the VI/EN button switches the language of the page, t
 |---|---|
 | Board | ESP32-2432S028R ("Cheap Yellow Display", 2.8", 320×240, ILI9341, XPT2046 resistive touch). Tested on the IPS panel with ID `81 81 B3` (the firmware enables colour inversion automatically). The dual-USB version with an ST7789 panel builds with env `cyd2usb`, untested. |
 | PC | Windows 10/11 with .NET Framework 4 (built in). Windows 11 is recommended because key icons in the settings page use the Segoe Fluent Icons font. Edge opens the settings window and runs HTML plugins. |
-| Flashing | [PlatformIO](https://platformio.org/) (CLI or the VS Code extension) |
+| Flashing | Desktop Chrome or Edge ([web flasher](https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/)), or [PlatformIO](https://platformio.org/) (CLI or the VS Code extension) |
 | Optional | [OBS Studio](https://obsproject.com/) 28 or later; [Node.js](https://nodejs.org/) for Node.js plugins |
 
 ### Getting started
 
-1. **Flash the firmware** (`firmware` folder):
+1. **Flash the firmware**: open the [web flasher](https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/) in Chrome or Edge, plug in the board and press **Flash
+   firmware**. The page reads the panel ID and flashes the right build. Or build it yourself in the `firmware` folder:
    ```powershell
    cd firmware
    .\cyd.cmd all -NoMonitor
@@ -378,8 +412,9 @@ onto another to swap them; the VI/EN button switches the language of the page, t
    This builds, uploads, then reads the panel ID to check the display type. `pio run -t upload` works too. Until the
    PC agent connects, the board shows a sample layout and "Waiting for computer…".
 2. **Build and run the agent** (`pc-agent` folder):
-   - double-click `build.cmd` to get `bin\CydAgent.exe`;
-   - run `bin\CydAgent.exe`: it has no window, only a small tray icon;
+   - double-click `build.cmd` to get `bin\CydAgent.exe` (or download `CydAgent.zip` from Releases and unzip it);
+   - run `bin\CydAgent.exe`: it has no window, only a small tray icon. Running a new agent build while an older one runs
+     makes the new one close the old one and take over;
    - to start it at every Windows sign-in, right-click the tray icon and tick **Start with Windows**, or tick the box
      with the same name at the bottom left of the settings page. Untick it to turn it off; Windows also lists it in
      Task Manager → Startup apps.
@@ -508,6 +543,8 @@ pc-agent/    CydAgent tray app, C# 5 / .NET Framework 4
   src/         Deck*.cs (layout, protocol, actions, media, OBS, settings web server), Elgato*.cs and WsServer.cs
                (Stream Deck plugin host), KeyArt.cs (key artwork), I18n.cs (two-language strings)
   web/         settings page, host page for HTML plugins
+site/        in-browser web flasher (GitHub Pages)
+.github/     release and web flasher workflows
 docs/images/ README images
 ```
 
@@ -517,7 +554,7 @@ The PC ↔ board protocol (version 2, serial port at 921600 baud):
 
   | Type | Frame | Data | Board reply |
   |---|---|---|---|
-  | 01 | HELLO | version, PC name | `[DECK] chao 2 <images>/<slots> <layout CRC> <PC name>` |
+  | 01 | HELLO | version, PC name | `[DECK] chao 2 <images>/<slots> <layout CRC> <PC name>`, then `[DECK] lat <0\|1>` |
   | 11 | LAYOUT_BEGIN | page count, main page count, profile name, language (0 Vietnamese, 1 English) | |
   | 12 | LAYOUT_PAGE | page number, parent page, bar type, name, 8 keys {kind, target, image id, "on" image id, title, "on" title}; kind: 0 empty, 1 action, 2 toggle, 3 folder, 4 back, 5 plugin | |
   | 13 | LAYOUT_END | CRC-32 of the 11 and 12 frames | `[DECK] bo <crc> ok\|loi` |
@@ -529,6 +566,7 @@ The PC ↔ board protocol (version 2, serial port at 921600 baud):
   | 19 | ACK | page, key, success | |
   | 1A | OBS | flags (bit 0 connected, 1 recording, 2 live, 3 recording paused), time, scene, dropped frames, OBS CPU % | |
   | 1B | KEY_IMAGE | page, key, offset (0xFFFF: clear the RAM image), encoding, data | `[DECK] ram <page> <key> ok` once complete |
+  | 1C | SCREEN_FLIP | flags (bit 0: flip the screen 180°), stored by the board in NVS | `[DECK] lat <0\|1>` |
 
   The PC sends INFO whenever something changes and at least every 2 seconds; after 4 seconds without INFO the board
   treats the link as lost.
@@ -539,6 +577,30 @@ The PC ↔ board protocol (version 2, serial port at 921600 baud):
 Key images are 72×72 RGB565, identified by the CRC-32 of their pixels.
 
 `.\cyd.cmd shot` captures the board's screens over serial; the board images in this README were made that way.
+
+### Web flasher
+
+The `site/` folder is the in-browser firmware flasher (plain HTML/CSS/JS and esptool-js), served by GitHub Pages at
+https://zbunh05.github.io/Stream-Deck-for-ESP32-CYD/.
+
+- `site/js/config.js`:
+  - `repo`: the repository that holds the releases;
+  - `links`: GitHub, Facebook, Zalo (empty ones are hidden);
+  - `stats`: anonymous flash counts, no cookies. `goatcounter` is `https://<name>.goatcounter.com/count`, `endpoint` an
+    HTTPS URL that takes JSON by POST. Leave both empty to send nothing.
+- Vietnamese text lives in `site/index.html`, English in `site/i18n/en.js`, the flasher's own text in
+  `site/js/messages.js`.
+- `site/assets/` is the design kit and `site/vendor/` is esptool-js: keep them as they are.
+- "Fresh install, erase everything" erases the 4 MB, writes the `cyd` build, restarts the board and reads its
+  `CYD_PANEL` line, then flashes `cyd2usb` on an ST7789 panel. "Update, keep my data" reads `CYD_PANEL` first, then
+  writes only the program for the right build, keeping NVS and the key image store.
+- **Releases**: push a `vX.Y.Z` tag (`git tag v2.0.0`, then `git push origin v2.0.0`). `release.yml` builds the `cyd`
+  and `cyd2usb` firmware and CydAgent, creates a GitHub Release with `CydAgent.zip` and `CydDeck-firmware.zip`, then
+  runs `pages.yml` to publish the page with the newest firmware. The first time, turn Pages on: Settings → Pages →
+  Source: GitHub Actions.
+- **Local test**: build both envs (`pio run -d firmware -e cyd -e cyd2usb`), run
+  `python .github/scripts/pack_firmware.py --version 2.0.0 --out site/firmware`, then
+  `python -m http.server 8765 --directory site` and open http://localhost:8765 in Chrome or Edge.
 
 ### Not yet
 

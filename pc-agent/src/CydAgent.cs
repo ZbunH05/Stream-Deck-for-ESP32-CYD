@@ -22,6 +22,16 @@ using Microsoft.Win32;
 
 namespace CydAgent {
 
+static class AppPaths {
+  public static string Root {
+    get {
+      string exeDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+      if (Directory.Exists(Path.Combine(exeDir, "web"))) return exeDir;
+      return Path.GetDirectoryName(exeDir) ?? exeDir;
+    }
+  }
+}
+
 static class Native {
   [StructLayout(LayoutKind.Sequential)]
   public struct MEMORYSTATUSEX {
@@ -806,6 +816,24 @@ sealed class Link {
 
 sealed class Control {
   public const int PORT = 47830;
+  public static readonly string BuildId = typeof(Control).Assembly.ManifestModule.ModuleVersionId.ToString("N");
+
+  public static string Ask(string command) {
+    try {
+      using (var client = new TcpClient()) {
+        var connect = client.BeginConnect(IPAddress.Loopback, PORT, null, null);
+        if (!connect.AsyncWaitHandle.WaitOne(1500)) return null;
+        client.EndConnect(connect);
+        client.ReceiveTimeout = 3000;
+        var stream = client.GetStream();
+        var writer = new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true };
+        writer.WriteLine(command);
+        return new StreamReader(stream, Encoding.UTF8).ReadLine();
+      }
+    } catch (Exception) {
+      return null;
+    }
+  }
   readonly Link link;
   readonly Action quit, openUi;
   readonly Func<string> uiUrl;
@@ -862,6 +890,8 @@ sealed class Control {
           } else if (parts[0] == "quit") {
             writer.WriteLine("ok");
             quit();
+          } else if (parts[0] == "build") {
+            writer.WriteLine(BuildId);
           } else {
             writer.WriteLine(link.Status);
           }
@@ -982,8 +1012,18 @@ sealed class AgentApp : ApplicationContext {
       }
       autostart.Checked = Autostart.Enabled;
     };
-    menu.Opening += (s, e) => autostart.Checked = Autostart.Enabled;
+    var flip = new ToolStripMenuItem(I18n.T("menu.flip"));
+    flip.Click += (s, e) => {
+      int now = deck.Flip;
+      if (now >= 0) deck.SetFlip(now == 0);
+    };
+    menu.Opening += (s, e) => {
+      autostart.Checked = Autostart.Enabled;
+      flip.Checked = deck.Flip == 1;
+      flip.Enabled = deck.Connected && deck.Flip >= 0;
+    };
     menu.Items.Add(autostart);
+    menu.Items.Add(flip);
     menu.Items.Add(new ToolStripSeparator());
     menu.Items.Add(I18n.T("menu.pause"), null, (s, e) => link.Pause(600));
     menu.Items.Add(I18n.T("menu.resume"), null, (s, e) => link.Resume());
@@ -1072,8 +1112,7 @@ static class Program {
 
   [STAThread]
   static void Main(string[] args) {
-    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-    Log.Dir = Path.Combine(Path.GetDirectoryName(baseDir.TrimEnd('\\')) ?? baseDir, "logs");
+    Log.Dir = Path.Combine(AppPaths.Root, "logs");
     Directory.CreateDirectory(Log.Dir);
     string port = null;
     bool openUi = false;
@@ -1095,7 +1134,18 @@ static class Program {
     }
     bool created;
     using (var mutex = new Mutex(true, "CydPcAgent", out created)) {
-      if (!created) return;
+      if (!created) {
+        if (Control.Ask("build") == Control.BuildId) {
+          Control.Ask("ui");
+          return;
+        }
+        if (Control.Ask("quit") != "ok") return;
+        try {
+          if (!mutex.WaitOne(15000)) return;
+        } catch (AbandonedMutexException) {
+        }
+        Log.Agent("Thay agent cũ đang chạy bằng bản này");
+      }
       Autostart.MigrateLegacy();
       Application.EnableVisualStyles();
       Application.SetCompatibleTextRenderingDefault(false);

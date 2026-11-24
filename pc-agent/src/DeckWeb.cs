@@ -33,8 +33,7 @@ sealed class DeckWeb {
     var bytes = new byte[16];
     using (var rng = RandomNumberGenerator.Create()) rng.GetBytes(bytes);
     token = BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
-    string baseDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
-    webDir = Path.Combine(Path.GetDirectoryName(baseDir) ?? baseDir, "web");
+    webDir = Path.Combine(AppPaths.Root, "web");
     plugins.HostPageUrl = () => "http://127.0.0.1:" + PORT + "/plugin-host.html?v=1";
     new Thread(Run) { IsBackground = true, Name = "deck-web" }.Start();
   }
@@ -225,6 +224,10 @@ sealed class DeckWeb {
     public bool Enabled { get; set; }
   }
 
+  sealed class FlipRequest {
+    public bool Enabled { get; set; }
+  }
+
   sealed class LangRequest {
     public string Lang { get; set; }
   }
@@ -268,6 +271,7 @@ sealed class DeckWeb {
     return new {
       connected = deck.Connected, port = link.PortName, status = deck.Status, linkStatus = link.Status, lastPress = deck.LastPress,
       admin = AdminMessage, lang = I18n.Lang, autostart = Autostart.Enabled,
+      flip = deck.Flip < 0 ? (bool?)null : deck.Flip == 1,
       media = m.Has ? new { title = m.Title, artist = m.Artist, app = m.App, playing = m.Playing, permille = m.Permille } : null,
       obs = new {
         host = obs.Settings.Host, port = obs.Settings.Port, enabled = obs.Settings.Enabled,
@@ -317,6 +321,14 @@ sealed class DeckWeb {
         var r = json.Deserialize<AutostartRequest>(body);
         Autostart.Set(r.Enabled);
         return new { ok = true, message = I18n.T(Autostart.Enabled ? "web.autostart_on" : "web.autostart_off"), status = Status() };
+      }
+      case "/api/flip": {
+        var r = json.Deserialize<FlipRequest>(body);
+        if (!deck.SetFlip(r.Enabled)) return new { ok = false, message = I18n.T("web.flip_none"), status = Status() };
+        int want = r.Enabled ? 1 : 0;
+        for (int i = 0; i < 20 && deck.Flip != want; i++) Thread.Sleep(50);
+        bool done = deck.Flip == want;
+        return new { ok = done, message = I18n.T(!done ? "web.flip_none" : r.Enabled ? "web.flip_on" : "web.flip_off"), status = Status() };
       }
       case "/api/lang": {
         var r = json.Deserialize<LangRequest>(body);
